@@ -6,7 +6,7 @@ from typing import Final
 
 DOMAIN: Final = "de_ev"
 NAME: Final = "Dé EV Charger"
-VERSION: Final = "0.2.0"
+VERSION: Final = "0.3.0"
 
 CONF_REGION: Final = "region"
 CONF_ACCESS_ID: Final = "access_id"

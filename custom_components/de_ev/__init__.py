@@ -8,6 +8,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryError
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers.typing import ConfigType
 
 from .charger import (
     ChargerAuthError,
@@ -28,6 +29,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
 )
 from .coordinator import DeEvCoordinator
+from .frontend_resources import async_register_frontend
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -57,6 +59,12 @@ def _settings_from_entry(entry: DeEvConfigEntry) -> ChargerSettings:
         min_current=int(entry.options.get(CONF_MIN_CURRENT, DEFAULT_MIN_CURRENT)),
         max_current=int(entry.options.get(CONF_MAX_CURRENT, DEFAULT_MAX_CURRENT)),
     )
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the Dé EV Charger integration."""
+    await async_register_frontend(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: DeEvConfigEntry) -> bool:

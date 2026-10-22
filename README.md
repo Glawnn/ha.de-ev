@@ -3,9 +3,9 @@
 Intégration Home Assistant pour une borne de recharge VE pilotée localement via
 Tuya, avec découverte cloud pour le bootstrap.
 
-> État actuel : **phase 0.2 — connexion cloud + locale**. Le config flow
-> découvre la borne via Tuya Cloud ou accepte une configuration locale, puis
-> expose les mesures et les commandes de charge dans Home Assistant.
+> État actuel : **phase 0.3 — carte Lovelace**. Le config flow découvre la
+> borne via Tuya Cloud ou accepte une configuration locale, expose les mesures
+> et les commandes de charge, et fournit une carte de pilotage personnalisable.
 
 ## Démarrage rapide
 
@@ -86,6 +86,69 @@ après un redémarrage de Home Assistant, sans reconstruire d'image.
 
 Voir [`sandbox/README.md`](sandbox/README.md) pour les variables, les commandes
 et les instructions de réutilisation.
+
+## Carte Lovelace
+
+L'intégration fournit la carte `custom:de-ev-charger`. Aucune ressource
+frontend à installer séparément : elle est servie par l'intégration.
+
+Exemple minimal, à partir d'une entité de la borne (l'IP et les autres entités
+sont retrouvées automatiquement via l'appareil) :
+
+```yaml
+type: custom:de-ev-charger
+entity: sensor.garage_status
+```
+
+Exemple complet, avec choix des informations et des commandes :
+
+```yaml
+type: custom:de-ev-charger
+device_id: 9f4c2a1b8e7d6c5f4a3b2c1d0e9f8a7b
+title: Borne du garage
+subtitle: Allée
+icon: mdi:ev-station
+metrics:
+  - power
+  - energy_session
+  - session_duration
+  - current
+  - voltage
+  - temperature
+controls:
+  - start_stop
+  - current
+```
+
+`metrics` accepte les clés `status`, `power`, `voltage`, `current`,
+`temperature`, `energy_session`, `session_duration`, `max_current`,
+`work_state` et `last_session_energy`. `controls` accepte `start_stop` et
+`current`. Pour retirer une information, il suffit de la retirer de la liste.
+
+Chaque entrée de `metrics` peut aussi être un objet pour personnaliser le
+libellé, l'icône ou l'entité :
+
+```yaml
+metrics:
+  - key: power
+    label: Puissance instantanée
+    icon: mdi:flash
+  - key: energy_session
+    entity: sensor.garage_session_energy
+```
+
+Pour forcer toutes les entités (utile si la découverte automatique ne trouve
+pas l'appareil), utiliser une correspondance explicite :
+
+```yaml
+type: custom:de-ev-charger
+entities:
+  status: sensor.garage_status
+  power: sensor.garage_power
+  energy_session: sensor.garage_session_energy
+  charge_session: switch.garage_charging_session
+  charge_current: number.garage_charging_current
+```
 
 ## Documentation
 

@@ -1,7 +1,7 @@
 {
   "domain": "de_ev",
   "name": "Dé EV Charger",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "config_flow": true,
   "integration_type": "device",
   "iot_class": "local_polling",
@@ -15,5 +15,8 @@
   ],
   "loggers": [
     "tinytuya"
+  ],
+  "dependencies": [
+    "http"
   ]
 }
