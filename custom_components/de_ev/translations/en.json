@@ -1,19 +1,164 @@
 {
   "config": {
+    "flow_title": "Dé EV Charger",
     "step": {
       "user": {
-        "title": "Dé EV Charger",
-        "description": "Create the charger entry. Cloud discovery and the local connection will be added in the next phases.",
+        "title": "Add a charger",
+        "description": "Find the charger through Tuya Cloud, or enter its local connection details.",
+        "menu_options": {
+          "cloud": "Tuya Cloud",
+          "local": "Local connection"
+        }
+      },
+      "cloud": {
+        "title": "Tuya Cloud",
+        "description": "Enter the Access ID and Access Secret of your Tuya IoT project. The Smart Life account must be linked to that project.",
         "data": {
-          "name": "Name"
+          "region": "Region",
+          "access_id": "Access ID",
+          "access_secret": "Access Secret"
         },
         "data_description": {
-          "name": "Name shown in Home Assistant."
+          "access_id": "Client ID of the Tuya IoT project.",
+          "access_secret": "Client Secret of the Tuya IoT project."
+        }
+      },
+      "cloud_device": {
+        "title": "Select the charger",
+        "description": "Choose the device to add. Its local key and IP are read from Tuya Cloud.",
+        "data": {
+          "device_id": "Device"
+        }
+      },
+      "local": {
+        "title": "Local connection",
+        "description": "The integration tests the connection and detects the Tuya protocol version before creating the entry.",
+        "data": {
+          "name": "Name",
+          "host": "IP address",
+          "device_id": "Device ID",
+          "local_key": "Local key",
+          "protocol_version": "Protocol version",
+          "area_id": "Area"
+        },
+        "data_description": {
+          "host": "Local IP address of the charger on the same network as Home Assistant.",
+          "local_key": "16-character Tuya local key.",
+          "protocol_version": "Auto tries 3.5, then 3.4 and 3.3."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Update the local key",
+        "description": "The charger rejected the stored local key. Enter the new key.",
+        "data": {
+          "local_key": "Local key"
+        }
+      },
+      "reconfigure": {
+        "title": "Update the charger connection",
+        "description": "Change the IP address, local key or protocol version.",
+        "data": {
+          "host": "IP address",
+          "local_key": "Local key",
+          "protocol_version": "Protocol version"
         }
       }
     },
+    "error": {
+      "cloud_auth_failed": "Tuya Cloud rejected the credentials or project permissions.",
+      "cloud_no_devices": "No devices are linked to this Tuya project.",
+      "cloud_timeout": "Tuya Cloud did not answer in time.",
+      "cloud_error": "Unexpected Tuya Cloud error.",
+      "missing_config": "IP address, device ID and local key are required.",
+      "invalid_auth": "The charger rejected the local key.",
+      "cannot_connect": "Cannot reach the charger on the local network.",
+      "port_busy": "Port 6668 is already used by another client. Close Smart Life or the Tuya app and retry.",
+      "unsupported_device": "The device connected, but its Tuya profile is not supported yet.",
+      "unknown": "Unexpected error while connecting to the charger."
+    },
     "abort": {
-      "single_instance_allowed": "Only one instance is allowed."
+      "already_configured": "This charger is already configured.",
+      "reauth_successful": "The local key was updated.",
+      "reconfigure_successful": "The charger connection was updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Charger options",
+        "description": "Configure polling and current limits.",
+        "data": {
+          "scan_interval": "Polling interval (seconds)",
+          "min_current": "Minimum current (A)",
+          "max_current": "Maximum current (A)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Status",
+        "state": {
+          "unknown": "Unknown",
+          "sleep": "Sleeping",
+          "idle": "Available",
+          "plugged_in": "Vehicle detected",
+          "charging": "Charging",
+          "waiting": "Waiting",
+          "fault": "Fault",
+          "paused": "Paused",
+          "charged": "Charge complete"
+        }
+      },
+      "power": {
+        "name": "Power"
+      },
+      "voltage": {
+        "name": "Voltage"
+      },
+      "current": {
+        "name": "Current"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "energy_session": {
+        "name": "Session energy"
+      },
+      "session_duration": {
+        "name": "Session duration"
+      },
+      "max_current": {
+        "name": "Maximum current"
+      },
+      "work_state": {
+        "name": "Work state"
+      },
+      "last_session_energy": {
+        "name": "Last session energy"
+      }
+    },
+    "binary_sensor": {
+      "charging": {
+        "name": "Charging"
+      },
+      "plugged": {
+        "name": "Vehicle plugged"
+      },
+      "fault": {
+        "name": "Fault"
+      }
+    },
+    "switch": {
+      "charge_session": {
+        "name": "Charging session"
+      }
+    },
+    "number": {
+      "charge_current": {
+        "name": "Charging current"
+      }
     }
   }
 }
