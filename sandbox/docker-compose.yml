@@ -3,7 +3,6 @@ services:
     image: ${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:stable}
     container_name: ${HA_CONTAINER_NAME:-de_ev-dev}
     restart: unless-stopped
-    init: true
     stop_grace_period: 30s
     ports:
       - "${HA_BIND:-127.0.0.1}:${HA_PORT:-8123}:8123"

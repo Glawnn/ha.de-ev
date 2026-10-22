@@ -906,7 +906,9 @@ make dev
 Prérequis : Docker avec intégration WSL2, Docker Compose v2, `make` et Python 3.
 L'interface est disponible sur <http://127.0.0.1:8123>. Le script d'onboarding
 crée le compte `dev` et affiche le mot de passe ; en cas d'échec, créer le
-compte dans l'interface.
+compte dans l'interface. Le compte et la locale se règlent dans
+`sandbox/config.yaml`, créé depuis `sandbox/config.example.yaml` et ignoré par
+Git. Un mot de passe vide est généré aléatoirement.
 
 Le composant est monté depuis `custom_components/de_ev` en lecture seule. Après
 une modification, redémarrer HA (`make restart`) ou utiliser le redémarrage
@@ -983,6 +985,7 @@ Cette étape n'est pas une version produit : elle précède la v0.1.0.
 - environnement Docker Compose Home Assistant ;
 - montage en lecture seule du composant ;
 - onboarding automatique best-effort ;
+- configuration YAML locale (`sandbox/config.yaml`, ignorée par Git) ;
 - documentation de réutilisation.
 
 ### v0.1.0

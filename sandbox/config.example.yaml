@@ -1,0 +1,17 @@
+# Local Home Assistant sandbox configuration.
+# Copy this file to config.yaml and adjust it. config.yaml is ignored by Git.
+#
+# This is a flat YAML file: one "key: value" pair per line.
+# Environment variables (HA_DEV_USER, HA_DEV_PASSWORD, ...) take precedence.
+
+username: dev
+password: ""
+name: Dev
+language: fr
+timezone: Europe/Paris
+country: FR
+currency: EUR
+latitude: 48.8566
+longitude: 2.3522
+elevation: 35
+timeout: 180

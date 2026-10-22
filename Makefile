@@ -24,6 +24,7 @@ HA_ELEVATION ?= 35
 HA_COUNTRY ?= FR
 HA_CURRENCY ?= EUR
 HA_URL ?= http://127.0.0.1:$(HA_PORT)
+HA_SANDBOX_CONFIG ?= $(CURDIR)/sandbox/config.yaml
 AUTO_ONBOARD ?= 1
 
 COMPOSE_PROJECT_NAME ?= $(COMPONENT_NAME)-dev
@@ -33,7 +34,7 @@ DOCKER_COMPOSE ?= $(shell if docker compose version >/dev/null 2>&1; then echo "
 export COMPONENT_NAME COMPONENT_PATH HA_CONFIG_DIR HA_BIND HA_PORT HA_IMAGE
 export HA_CONTAINER_NAME HA_TIMEZONE HA_LANGUAGE HA_DEV_NAME HA_DEV_USER
 export HA_DEV_PASSWORD HA_LATITUDE HA_LONGITUDE HA_ELEVATION HA_COUNTRY
-export HA_CURRENCY HA_URL COMPOSE_PROJECT_NAME
+export HA_CURRENCY HA_URL HA_SANDBOX_CONFIG COMPOSE_PROJECT_NAME
 
 .PHONY: help dev up down restart logs ps shell config reset clean onboard test lint compose-config check-component check-docker
 
@@ -76,15 +77,15 @@ config: check-docker ## Vérifier la configuration HA
 	@$(DOCKER_COMPOSE) -f sandbox/docker-compose.yml exec homeassistant python -m homeassistant --script check_config -c /config
 
 reset: down ## Supprimer l'état HA (onboarding, DB, logs)
-	@rm -rf "$(HA_CONFIG_DIR)/.storage"
-	@rm -f "$(HA_CONFIG_DIR)"/home-assistant_v2.db "$(HA_CONFIG_DIR)"/home-assistant_v2.db-* "$(HA_CONFIG_DIR)"/home-assistant.log "$(HA_CONFIG_DIR)"/home-assistant.log.*
+	@docker run --rm --entrypoint sh -v "$(HA_CONFIG_DIR):/config" "$(HA_IMAGE)" -c 'rm -rf /config/.storage; rm -f /config/.ha_run.lock /config/home-assistant_v2.db /config/home-assistant_v2.db-* /config/home-assistant.log /config/home-assistant.log.*'
 	@printf "État HA supprimé. Relance avec 'make dev'.\n"
 
 clean: reset ## Supprimer l'état et les fichiers runtime
-	@rm -rf "$(HA_CONFIG_DIR)/deps" "$(HA_CONFIG_DIR)/tts" "$(HA_CONFIG_DIR)/backups" "$(HA_CONFIG_DIR)/.cloud"
+	@docker run --rm --entrypoint sh -v "$(HA_CONFIG_DIR):/config" "$(HA_IMAGE)" -c 'rm -rf /config/deps /config/tts /config/backups /config/.cloud'
 	@printf "Fichiers runtime supprimés (configuration.yaml conservé).\n"
 
 onboard: ## Créer le compte propriétaire via l'API onboarding
+	@test -f "$(HA_SANDBOX_CONFIG)" || { cp sandbox/config.example.yaml "$(HA_SANDBOX_CONFIG)"; chmod 600 "$(HA_SANDBOX_CONFIG)"; }
 	@python3 sandbox/scripts/onboard.py
 
 test: ## Lancer les tests Python

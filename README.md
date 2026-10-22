@@ -18,7 +18,9 @@ make dev
 ```
 
 Ouvrir ensuite <http://127.0.0.1:8123>. Le Makefile tente de créer le compte
-propriétaire automatiquement et affiche les identifiants.
+propriétaire automatiquement et affiche les identifiants. Le compte et la
+locale se configurent dans `sandbox/config.yaml`, créé depuis
+`sandbox/config.example.yaml` et ignoré par Git.
 
 ```bash
 make logs     # suivre les logs

@@ -11,13 +11,17 @@ htmlcov/
 # Local secrets / overrides
 .env
 sandbox/.env
+sandbox/config.yaml
 
 # Home Assistant sandbox runtime
 sandbox/ha-config/.storage/
+sandbox/ha-config/.HA_VERSION
+sandbox/ha-config/.ha_run.lock
 sandbox/ha-config/*.db
 sandbox/ha-config/*.db-*
 sandbox/ha-config/home-assistant.log
 sandbox/ha-config/home-assistant.log.*
+sandbox/ha-config/blueprints/
 sandbox/ha-config/deps/
 sandbox/ha-config/tts/
 sandbox/ha-config/backups/

@@ -36,11 +36,45 @@ Then open <http://127.0.0.1:8123>.
 
 1. starts the Home Assistant container;
 2. waits for the web interface to respond;
-3. tries to create the owner account through the onboarding API;
-4. prints the URL and credentials if onboarding succeeded.
+3. creates `sandbox/config.yaml` from `sandbox/config.example.yaml` if needed;
+4. tries to create the owner account through the onboarding API;
+5. prints the URL and credentials if onboarding succeeded.
 
 If automatic onboarding fails, open the UI and create the account manually.
 The configuration and the component are already in place.
+
+## Sandbox configuration
+
+The owner account and locale are read from `sandbox/config.yaml`. This file is
+local, ignored by Git, and created from `sandbox/config.example.yaml` on the
+first `make dev`:
+
+```bash
+cp sandbox/config.example.yaml sandbox/config.yaml
+$EDITOR sandbox/config.yaml
+```
+
+The file uses flat `key: value` YAML:
+
+```yaml
+username: dev
+password: "change-me"
+name: Dev
+language: fr
+timezone: Europe/Paris
+country: FR
+currency: EUR
+latitude: 48.8566
+longitude: 2.3522
+elevation: 35
+timeout: 180
+```
+
+An empty `password` generates a random one on first onboarding. A changed
+username or password only applies to a new account: run `make reset` before
+`make dev` to recreate it. Environment variables such as `HA_DEV_USER` and
+`HA_DEV_PASSWORD` are used as fallbacks when the YAML key is missing or empty.
+Docker settings (port, image, etc.) remain Makefile variables.
 
 ## Commands
 
@@ -79,8 +113,9 @@ make dev COMPONENT_NAME=my_integration HA_PORT=8124
 | `HA_IMAGE` | `ghcr.io/home-assistant/home-assistant:stable` | HA image |
 | `HA_CONTAINER_NAME` | `<name>-dev` | Container name |
 | `HA_TIMEZONE` | `Europe/Paris` | Timezone |
-| `HA_DEV_USER` | `dev` | Owner username |
-| `HA_DEV_PASSWORD` | generated | Owner password |
+| `HA_DEV_USER` | YAML / `dev` | Owner username fallback |
+| `HA_DEV_PASSWORD` | YAML / generated | Owner password fallback |
+| `HA_SANDBOX_CONFIG` | `sandbox/config.yaml` | Sandbox onboarding YAML |
 | `AUTO_ONBOARD` | `1` | Automatic onboarding with `make dev` |
 
 ## Reusing it in another project
@@ -105,6 +140,8 @@ make dev COMPONENT_NAME=my_integration HA_PORT=8124 COMPOSE_PROJECT_NAME=my-inte
 
 - `sandbox/ha-config/.storage/` contains users, tokens and configuration
   entries: **never commit it**.
+- `sandbox/config.yaml` contains the sandbox password: **never commit it**.
+  Only `sandbox/config.example.yaml` belongs in Git.
 - The port is bound to `127.0.0.1` by default. To expose HA on the network,
   use `HA_BIND=0.0.0.0` with care.
 - The component is mounted read-only; `PYTHONDONTWRITEBYTECODE=1` prevents

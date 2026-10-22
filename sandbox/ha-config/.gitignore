@@ -1,8 +1,11 @@
 .storage/
+.HA_VERSION
+.ha_run.lock
 *.db
 *.db-*
 home-assistant.log
 home-assistant.log.*
+blueprints/
 deps/
 tts/
 backups/
