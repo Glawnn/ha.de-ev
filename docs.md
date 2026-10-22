@@ -1,15 +1,15 @@
-# HA.de-ev — Intégration Home Assistant pour borne EV Tuya
+# ha.de-ev — Intégration Home Assistant pour borne EV Tuya
 
 > **Statut** : conception validée, développement à démarrer  
 > **Version cible** : `0.1.0`  
-> **Dépôt** : <https://github.com/Glawnn/HA.de-ev>  
+> **Dépôt** : <https://github.com/Glawnn/ha.de-ev>  
 > **Domaine Home Assistant** : `de_ev`
 
 ---
 
 ## 1. Résumé
 
-`HA.de-ev` est une intégration Home Assistant personnalisée pour piloter et superviser une borne de recharge Tuya **Dé Pow EV Charger** (3,5 kW).
+`ha.de-ev` est une intégration Home Assistant personnalisée pour piloter et superviser une borne de recharge Tuya **Dé Pow EV Charger** (3,5 kW).
 
 L'intégration utilise le **cloud Tuya uniquement pour la configuration initiale** :
 
@@ -161,7 +161,7 @@ Ces éléments pourront être ajoutés après validation de la v1.
 ## 6. Arborescence du projet
 
 ```text
-HA.de-ev/
+ha.de-ev/
 ├── custom_components/
 │   └── de_ev/
 │       ├── __init__.py
