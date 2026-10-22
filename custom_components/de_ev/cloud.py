@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 from typing import Any
 
 import tinytuya
@@ -41,6 +42,31 @@ def _error_message(result: dict[str, Any]) -> str:
     return f"{result.get('Error', 'unknown error')} (code {result.get('Err', '?')})"
 
 
+def is_lan_ip(value: str) -> bool:
+    """Return True for a private IPv4 address usable on the LAN."""
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return address.version == 4 and address.is_private and not address.is_loopback
+
+
+def _normalize(item: dict[str, Any]) -> dict[str, Any]:
+    ip = str(item.get("ip") or "")
+    return {
+        "id": item.get("id") or item.get("devId") or "",
+        "name": item.get("name") or item.get("customName") or "",
+        "local_key": (
+            item.get("local_key") or item.get("localKey") or item.get("key") or ""
+        ),
+        "ip": ip if is_lan_ip(ip) else "",
+        "wan_ip": ip if ip and not is_lan_ip(ip) else "",
+        "category": item.get("category") or "",
+        "product_name": item.get("product_name") or item.get("productName") or "",
+        "online": item.get("online") if "online" in item else None,
+    }
+
+
 def list_devices(region: str, api_key: str, api_secret: str) -> list[dict[str, Any]]:
     """Return the devices visible to a Tuya Cloud project."""
     if region not in REGIONS:
@@ -74,27 +100,12 @@ def list_devices(region: str, api_key: str, api_secret: str) -> list[dict[str, A
     for item in result:
         if not isinstance(item, dict):
             continue
-        device_id = item.get("id") or item.get("devId") or ""
-        if not device_id:
+        device = _normalize(item)
+        if not device["id"]:
             continue
-        devices.append(
-            {
-                "id": device_id,
-                "name": item.get("name") or item.get("customName") or device_id,
-                "local_key": (
-                    item.get("local_key")
-                    or item.get("localKey")
-                    or item.get("key")
-                    or ""
-                ),
-                "ip": item.get("ip") or "",
-                "category": item.get("category") or "",
-                "product_name": item.get("product_name")
-                or item.get("productName")
-                or "",
-                "online": item.get("online") if "online" in item else None,
-            }
-        )
+        if not device["name"]:
+            device["name"] = device["id"]
+        devices.append(device)
 
     if not devices:
         raise CloudNoDevices("No devices are linked to this Tuya project.")
@@ -103,3 +114,28 @@ def list_devices(region: str, api_key: str, api_secret: str) -> list[dict[str, A
         key=lambda device: (device["online"] is not True, device["name"].lower())
     )
     return devices
+
+
+def get_device(
+    region: str,
+    api_key: str,
+    api_secret: str,
+    device_id: str,
+) -> dict[str, Any]:
+    """Return the cloud details of one device (online state, LAN IP if any)."""
+    cloud = tinytuya.Cloud(
+        apiRegion=region,
+        apiKey=api_key.strip(),
+        apiSecret=api_secret.strip(),
+        new_sign_algorithm=True,
+    )
+    try:
+        response = cloud.cloudrequest(f"/v1.0/devices/{device_id}")
+    except Exception:  # noqa: BLE001 - detail lookup is best effort
+        return {}
+    if not isinstance(response, dict) or not response.get("success"):
+        return {}
+    result = response.get("result")
+    if not isinstance(result, dict):
+        return {}
+    return _normalize(result)

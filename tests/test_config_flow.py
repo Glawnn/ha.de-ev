@@ -54,6 +54,13 @@ def mock_validation(monkeypatch: pytest.MonkeyPatch) -> None:
         return DEFAULT_PROTOCOL, decode(DPS)
 
     monkeypatch.setattr(config_flow, "_validate_connection", _validate)
+    monkeypatch.setattr(config_flow, "get_device", lambda *args: {})
+    monkeypatch.setattr(config_flow, "scan_udp", lambda *args, **kwargs: [])
+
+    async def _no_scan(*args: Any, **kwargs: Any) -> list[str]:
+        return []
+
+    monkeypatch.setattr(config_flow, "scan_lan", _no_scan)
     monkeypatch.setattr(ChargerClient, "connect", lambda self: DPS)
     monkeypatch.setattr(ChargerClient, "status", lambda self: decode(DPS))
     monkeypatch.setattr(ChargerClient, "close", lambda self: None)
@@ -125,6 +132,54 @@ async def test_cloud_flow_creates_entry(
     assert result["data"][CONF_LOCAL_KEY] == "0123456789abcdef"
     assert result["data"][CONF_PROTOCOL] == DEFAULT_PROTOCOL
     assert result["data"][CONF_ACCESS_ID] == "access-id"
+    await _unload_entries(hass)
+
+
+async def test_cloud_flow_prompts_for_ip_when_missing(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cloud devices without a LAN IP ask for one explicitly."""
+    monkeypatch.setattr(
+        config_flow,
+        "list_devices",
+        lambda *args: [{**DEVICE, "ip": "", "wan_ip": "203.0.113.10"}],
+    )
+
+    result = await _start_cloud(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_REGION: "eu",
+            CONF_ACCESS_ID: "access-id",
+            CONF_ACCESS_SECRET: "access-secret",
+        },
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_DEVICE_ID: "device-1"},
+    )
+    assert result["type"] is data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "host"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_HOST: "192.168.1.50"},
+    )
+    assert result["step_id"] == "local"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_HOST: "192.168.1.50",
+            CONF_DEVICE_ID: "device-1",
+            CONF_LOCAL_KEY: "0123456789abcdef",
+            CONF_PROTOCOL: "auto",
+            CONF_AREA_ID: "",
+        },
+    )
+    assert result["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_HOST] == "192.168.1.50"
     await _unload_entries(hass)
 
 

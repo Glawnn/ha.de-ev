@@ -71,6 +71,46 @@ def local_ipv4() -> str:
         sock.close()
 
 
+def local_networks() -> list[ipaddress.IPv4Network]:
+    """Return the private IPv4 networks attached to this host."""
+    networks: set[ipaddress.IPv4Network] = set()
+    try:
+        import psutil  # noqa: PLC0415 - optional, bundled with Home Assistant
+    except ImportError:
+        psutil = None
+
+    if psutil is not None:
+        for addresses in psutil.net_if_addrs().values():
+            for address in addresses:
+                if address.family != socket.AF_INET or not address.netmask:
+                    continue
+                try:
+                    network = ipaddress.ip_network(
+                        f"{address.address}/{address.netmask}", strict=False
+                    )
+                except ValueError:
+                    continue
+                if (
+                    network.version == 4
+                    and network.is_private
+                    and not network.is_loopback
+                    and not network.is_link_local
+                ):
+                    prefix = 24 if network.prefixlen < 24 else network.prefixlen
+                    networks.add(
+                        ipaddress.ip_network(
+                            f"{address.address}/{prefix}", strict=False
+                        )
+                    )
+
+    address = local_ipv4()
+    if address and not address.startswith("127."):
+        with contextlib.suppress(ValueError):
+            networks.add(ipaddress.ip_network(address + "/24", strict=False))
+
+    return sorted(networks, key=lambda network: str(network))
+
+
 async def _port_open(
     host: str,
     port: int,
@@ -95,14 +135,14 @@ async def scan_lan(
     timeout: float = 0.7,
     concurrency: int = 96,
 ) -> list[str]:
-    """Scan the local /24 for open Tuya TCP ports."""
-    address = local_ipv4()
-    if not address or address.startswith("127."):
+    """Scan the local IPv4 networks for open Tuya TCP ports."""
+    networks = local_networks()
+    if not networks:
         return []
-    network = ipaddress.ip_network(address + "/24", strict=False)
+    hosts = {host for network in networks for host in network.hosts()}
     semaphore = asyncio.Semaphore(concurrency)
     results = await asyncio.gather(
-        *(_port_open(str(host), port, timeout, semaphore) for host in network.hosts())
+        *(_port_open(str(host), port, timeout, semaphore) for host in hosts)
     )
     found = [item for item in results if item]
     return sorted(found, key=lambda ip: tuple(int(part) for part in ip.split(".")))

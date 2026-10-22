@@ -25,7 +25,7 @@
       },
       "cloud_device": {
         "title": "Select the charger",
-        "description": "Choose the device to add. Its local key and IP are read from Tuya Cloud.",
+        "description": "Choose the device to add. Its local key is read from Tuya Cloud; the local IP is discovered on the LAN.",
         "data": {
           "device_id": "Device"
         }
@@ -61,6 +61,13 @@
           "host": "IP address",
           "local_key": "Local key",
           "protocol_version": "Protocol version"
+        }
+      },
+      "host": {
+        "title": "Charger IP address",
+        "description": "The charger was found in Tuya Cloud, but its local IP could not be discovered automatically. Enter its LAN IP address (for example 192.168.1.43), visible in your router's device list.",
+        "data": {
+          "host": "IP address"
         }
       }
     },

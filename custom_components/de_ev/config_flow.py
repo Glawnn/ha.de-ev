@@ -30,7 +30,7 @@ from .charger import (
     ChargerSettings,
     ChargerUnreachable,
 )
-from .cloud import CloudAuthError, CloudError, CloudNoDevices, list_devices
+from .cloud import CloudAuthError, CloudError, CloudNoDevices, get_device, list_devices
 from .const import (
     CONF_ACCESS_ID,
     CONF_ACCESS_SECRET,
@@ -263,6 +263,27 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_NAME: str(device.get("name") or NAME),
             }
 
+            try:
+                details = await asyncio.wait_for(
+                    self.hass.async_add_executor_job(
+                        get_device,
+                        self._cloud_data[CONF_REGION],
+                        self._cloud_data[CONF_ACCESS_ID],
+                        self._cloud_data[CONF_ACCESS_SECRET],
+                        device_id,
+                    ),
+                    timeout=20,
+                )
+            except TimeoutError:
+                details = {}
+            if details:
+                if details.get("ip"):
+                    self._defaults[CONF_HOST] = str(details["ip"])
+                if details.get("local_key"):
+                    self._defaults[CONF_LOCAL_KEY] = str(details["local_key"])
+                if details.get("name"):
+                    self._defaults[CONF_NAME] = str(details["name"])
+
             await self.async_set_unique_id(device_id)
             self._abort_if_unique_id_configured()
 
@@ -271,6 +292,8 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     device_id,
                     self._defaults[CONF_LOCAL_KEY],
                 )
+            if not self._defaults[CONF_HOST]:
+                return await self.async_step_host()
             return await self.async_step_local()
 
         return self.async_show_form(
@@ -314,6 +337,33 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except Exception:
                 continue
         return ""
+
+    async def async_step_host(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Ask for the local IP when it cannot be discovered."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            host = str(user_input[CONF_HOST]).strip()
+            if not host:
+                errors["base"] = "missing_config"
+            else:
+                self._defaults[CONF_HOST] = host
+                return await self.async_step_local()
+
+        return self.async_show_form(
+            step_id="host",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_HOST,
+                        default=self._defaults.get(CONF_HOST, ""),
+                    ): TextSelector()
+                }
+            ),
+            errors=errors,
+        )
 
     def _local_schema(self, defaults: dict[str, Any]) -> vol.Schema:
         return vol.Schema(

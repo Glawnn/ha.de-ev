@@ -25,7 +25,7 @@
       },
       "cloud_device": {
         "title": "Sélectionner la borne",
-        "description": "Choisissez l'appareil à ajouter. Sa clé locale et son IP sont récupérées depuis Tuya Cloud.",
+        "description": "Choisissez l'appareil à ajouter. Sa clé locale est lue depuis Tuya Cloud ; son IP locale est découverte sur le réseau.",
         "data": {
           "device_id": "Appareil"
         }
@@ -61,6 +61,13 @@
           "host": "Adresse IP",
           "local_key": "Clé locale",
           "protocol_version": "Version du protocole"
+        }
+      },
+      "host": {
+        "title": "Adresse IP de la borne",
+        "description": "La borne a été trouvée dans Tuya Cloud, mais son IP locale n'a pas pu être découverte automatiquement. Saisissez son adresse IP sur le réseau local (par exemple 192.168.1.43), visible dans la liste des appareils de votre box.",
+        "data": {
+          "host": "Adresse IP"
         }
       }
     },
