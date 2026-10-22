@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
 from homeassistant import config_entries, data_entry_flow
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant
+from homeassistant.data_entry_flow import EVENT_DATA_ENTRY_FLOW_PROGRESSED
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.de_ev import config_flow
@@ -72,6 +74,23 @@ async def _unload_entries(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
 
+async def _configure(
+    hass: HomeAssistant,
+    result: dict[str, Any],
+    user_input: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Submit a step and finish any progress step."""
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input
+    )
+    if result["type"] is data_entry_flow.FlowResultType.SHOW_PROGRESS:
+        await hass.async_block_till_done()
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {}
+        )
+    return result
+
+
 async def _start_cloud(hass: HomeAssistant) -> dict[str, Any]:
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -79,8 +98,9 @@ async def _start_cloud(hass: HomeAssistant) -> dict[str, Any]:
     )
     assert result["type"] is data_entry_flow.FlowResultType.MENU
     assert result["step_id"] == "user"
-    return await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    return await _configure(
+        hass,
+        result,
         {"next_step_id": "cloud"},
     )
 
@@ -96,8 +116,9 @@ async def test_cloud_flow_creates_entry(
     assert result["type"] is data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "cloud"
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {
             CONF_REGION: "eu",
             CONF_ACCESS_ID: "access-id",
@@ -107,15 +128,17 @@ async def test_cloud_flow_creates_entry(
     assert result["type"] is data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "cloud_device"
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {CONF_DEVICE_ID: "device-1"},
     )
     assert result["type"] is data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "local"
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {
             CONF_HOST: "192.168.1.50",
             CONF_DEVICE_ID: "device-1",
@@ -147,29 +170,33 @@ async def test_cloud_flow_prompts_for_ip_when_missing(
     )
 
     result = await _start_cloud(hass)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {
             CONF_REGION: "eu",
             CONF_ACCESS_ID: "access-id",
             CONF_ACCESS_SECRET: "access-secret",
         },
     )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {CONF_DEVICE_ID: "device-1"},
     )
     assert result["type"] is data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "host"
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {CONF_HOST: "192.168.1.50"},
     )
     assert result["step_id"] == "local"
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {
             CONF_HOST: "192.168.1.50",
             CONF_DEVICE_ID: "device-1",
@@ -195,8 +222,9 @@ async def test_cloud_auth_failure_is_reported(
     monkeypatch.setattr(config_flow, "list_devices", _raise)
 
     result = await _start_cloud(hass)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {
             CONF_REGION: "eu",
             CONF_ACCESS_ID: "bad",
@@ -215,14 +243,16 @@ async def test_local_flow_creates_entry(hass: HomeAssistant) -> None:
         DOMAIN,
         context={"source": config_entries.SOURCE_USER},
     )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {"next_step_id": "local"},
     )
     assert result["step_id"] == "local"
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {
             CONF_HOST: "192.168.1.50",
             CONF_DEVICE_ID: "device-1",
@@ -245,18 +275,129 @@ async def test_duplicate_device_is_aborted(
     MockConfigEntry(domain=DOMAIN, unique_id="device-1").add_to_hass(hass)
 
     result = await _start_cloud(hass)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {
             CONF_REGION: "eu",
             CONF_ACCESS_ID: "access-id",
             CONF_ACCESS_SECRET: "access-secret",
         },
     )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
+    result = await _configure(
+        hass,
+        result,
         {CONF_DEVICE_ID: "device-1"},
     )
 
     assert result["type"] is data_entry_flow.FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_local_timeout_is_reported(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stuck local connection ends with an explicit timeout error."""
+
+    async def _hang(*args: Any, **kwargs: Any) -> tuple[str, Any]:
+        await asyncio.sleep(1)
+        raise AssertionError("validation should have been cancelled")
+
+    monkeypatch.setattr(config_flow, "_validate_connection", _hang)
+    monkeypatch.setattr(config_flow, "LOCAL_VALIDATION_TIMEOUT", 0.05)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_USER},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"next_step_id": "local"},
+    )
+    result = await _configure(
+        hass,
+        result,
+        {
+            CONF_HOST: "192.168.1.50",
+            CONF_DEVICE_ID: "device-1",
+            CONF_LOCAL_KEY: "0123456789abcdef",
+            CONF_PROTOCOL: "3.5",
+        },
+    )
+
+    assert result["type"] is data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "local"
+    assert result["errors"]["base"] == "timeout"
+
+
+async def test_local_flow_aborts_when_device_already_configured(
+    hass: HomeAssistant,
+) -> None:
+    """An already configured device aborts before the progress step starts."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="device-1",
+        data={
+            CONF_HOST: "192.168.1.50",
+            CONF_DEVICE_ID: "device-1",
+            CONF_LOCAL_KEY: "0123456789abcdef",
+            CONF_PROTOCOL: DEFAULT_PROTOCOL,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_USER},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"next_step_id": "local"},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_HOST: "192.168.1.50",
+            CONF_DEVICE_ID: "device-1",
+            CONF_LOCAL_KEY: "0123456789abcdef",
+            CONF_PROTOCOL: "auto",
+        },
+    )
+
+    assert result["type"] is data_entry_flow.FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+async def test_cloud_progress_notifies_the_frontend(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Finishing a progress step on the same form step wakes the frontend."""
+
+    def _raise(*args: Any) -> list[dict[str, Any]]:
+        raise CloudAuthError("bad credentials")
+
+    monkeypatch.setattr(config_flow, "list_devices", _raise)
+    events: list[Event] = []
+    hass.bus.async_listen(
+        EVENT_DATA_ENTRY_FLOW_PROGRESSED, lambda event: events.append(event)
+    )
+
+    result = await _start_cloud(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_REGION: "eu",
+            CONF_ACCESS_ID: "bad",
+            CONF_ACCESS_SECRET: "bad",
+        },
+    )
+    assert result["type"] is data_entry_flow.FlowResultType.SHOW_PROGRESS
+    flow_id = result["flow_id"]
+    await hass.async_block_till_done()
+
+    assert any(
+        event.data["flow_id"] == flow_id and event.data.get("refresh")
+        for event in events
+    )

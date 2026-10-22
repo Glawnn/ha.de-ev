@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 from typing import Any
 
@@ -62,6 +63,7 @@ from .discovery import scan_lan, scan_udp
 from .profiles import Snapshot, decode
 
 LOGGER = logging.getLogger(__name__)
+LOCAL_VALIDATION_TIMEOUT = 45
 
 REGION_LABELS = {
     "eu": "Europe",
@@ -115,6 +117,12 @@ async def _validate_connection(
     last_error: ChargerError | None = None
 
     for version in versions:
+        LOGGER.info(
+            "Testing charger %s at %s with Tuya protocol %s",
+            device_id,
+            host,
+            version,
+        )
         client = ChargerClient(
             ChargerSettings(
                 host=host,
@@ -126,35 +134,68 @@ async def _validate_connection(
         try:
             dps = await hass.async_add_executor_job(client.connect)
             snapshot = decode(dps, max_current=DEFAULT_MAX_CURRENT)
+            LOGGER.info(
+                "Charger %s answered at %s with protocol %s",
+                device_id,
+                host,
+                version,
+            )
             return version, snapshot
-        except (ChargerBusy, ChargerUnreachable):
+        except (ChargerBusy, ChargerUnreachable) as err:
+            LOGGER.warning("Charger %s at %s: %s", device_id, host, err)
             raise
         except ChargerAuthError as err:
+            LOGGER.warning(
+                "Charger %s at %s rejected the local key with protocol %s",
+                device_id,
+                host,
+                version,
+            )
             last_error = err
         except ChargerError as err:
+            LOGGER.warning(
+                "Charger %s at %s failed with protocol %s: %s",
+                device_id,
+                host,
+                version,
+                err,
+            )
             last_error = err
         finally:
-            await hass.async_add_executor_job(client.close)
+            task = asyncio.current_task()
+            if task is not None and task.cancelling():
+                # A stuck socket must not block the flow timeout: close later.
+                async def _close_later(target: ChargerClient = client) -> None:
+                    await hass.async_add_executor_job(target.close)
+
+                hass.async_create_task(_close_later(), eager_start=False)
+            else:
+                await hass.async_add_executor_job(client.close)
 
     raise last_error or ChargerError("Unable to connect to the charger.")
 
 
 def _probe_host(host: str, device_id: str, local_key: str) -> bool:
-    client = ChargerClient(
-        ChargerSettings(
-            host=host,
-            device_id=device_id,
-            local_key=local_key,
-            version=DEFAULT_PROTOCOL,
+    """Return True when the host accepts this device ID and local key."""
+    for version in PROTOCOLS:
+        client = ChargerClient(
+            ChargerSettings(
+                host=host,
+                device_id=device_id,
+                local_key=local_key,
+                version=version,
+            )
         )
-    )
-    try:
-        client.connect()
-        return True
-    except ChargerError:
-        return False
-    finally:
-        client.close()
+        try:
+            client.connect()
+            return True
+        except (ChargerBusy, ChargerUnreachable):
+            return False
+        except ChargerError:
+            continue
+        finally:
+            client.close()
+    return False
 
 
 class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -167,6 +208,13 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._devices: dict[str, dict[str, Any]] = {}
         self._selected: dict[str, Any] = {}
         self._defaults: dict[str, Any] = {}
+        self._cloud_task: asyncio.Task[list[dict[str, Any]]] | None = None
+        self._cloud_error: str | None = None
+        self._discover_task: asyncio.Task[str] | None = None
+        self._local_task: asyncio.Task[tuple[str, Snapshot]] | None = None
+        self._local_result: tuple[str, Snapshot] | None = None
+        self._local_error: str | None = None
+        self._local_input: dict[str, Any] = {}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -195,42 +243,79 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
+    async def async_step_cloud_done(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Show the cloud form after the progress step (distinct step id)."""
+        return await self.async_step_cloud()
+
+    async def _async_list_cloud_devices(self) -> list[dict[str, Any]]:
+        """Fetch the devices of the Tuya project."""
+        LOGGER.info(
+            "Fetching Tuya Cloud devices (region %s)",
+            self._cloud_data[CONF_REGION],
+        )
+        return await asyncio.wait_for(
+            self.hass.async_add_executor_job(
+                list_devices,
+                self._cloud_data[CONF_REGION],
+                self._cloud_data[CONF_ACCESS_ID],
+                self._cloud_data[CONF_ACCESS_SECRET],
+            ),
+            timeout=45,
+        )
+
     async def async_step_cloud(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Collect Tuya Cloud credentials and list devices."""
         errors: dict[str, str] = {}
 
-        if user_input is not None:
+        if self._cloud_error is not None:
+            errors["base"] = self._cloud_error
+            self._cloud_error = None
+
+        if user_input:
             self._cloud_data = {
                 CONF_REGION: str(user_input[CONF_REGION]),
                 CONF_ACCESS_ID: str(user_input[CONF_ACCESS_ID]).strip(),
                 CONF_ACCESS_SECRET: str(user_input[CONF_ACCESS_SECRET]).strip(),
             }
-            try:
-                devices = await asyncio.wait_for(
-                    self.hass.async_add_executor_job(
-                        list_devices,
-                        self._cloud_data[CONF_REGION],
-                        self._cloud_data[CONF_ACCESS_ID],
-                        self._cloud_data[CONF_ACCESS_SECRET],
-                    ),
-                    timeout=45,
+            self._cloud_task = self.hass.async_create_task(
+                self._async_list_cloud_devices(), eager_start=False
+            )
+
+        if self._cloud_task is not None:
+            if not self._cloud_task.done():
+                return self.async_show_progress(
+                    step_id="cloud",
+                    progress_action="cloud_devices",
+                    progress_task=self._cloud_task,
                 )
+            task, self._cloud_task = self._cloud_task, None
+            try:
+                devices = task.result()
             except TimeoutError:
-                errors["base"] = "cloud_timeout"
+                LOGGER.warning("Tuya Cloud did not answer within 45 seconds")
+                self._cloud_error = "cloud_timeout"
             except CloudAuthError:
-                errors["base"] = "cloud_auth_failed"
+                LOGGER.warning("Tuya Cloud rejected the provided credentials")
+                self._cloud_error = "cloud_auth_failed"
             except CloudNoDevices:
-                errors["base"] = "cloud_no_devices"
+                LOGGER.warning("Tuya Cloud project has no linked devices")
+                self._cloud_error = "cloud_no_devices"
             except CloudError:
-                errors["base"] = "cloud_error"
+                LOGGER.warning("Unexpected Tuya Cloud error", exc_info=True)
+                self._cloud_error = "cloud_error"
             except Exception:
                 LOGGER.exception("Unexpected Tuya Cloud error")
-                errors["base"] = "cloud_error"
+                self._cloud_error = "cloud_error"
             else:
                 self._devices = {device["id"]: device for device in devices}
-                return await self.async_step_cloud_device()
+                return self.async_show_progress_done(
+                    next_step_id="cloud_device"
+                )
+            return self.async_show_progress_done(next_step_id="cloud_done")
 
         return self.async_show_form(
             step_id="cloud",
@@ -238,22 +323,82 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    def _device_label(self, device_id: str, device: dict[str, Any]) -> str:
+        """Build a readable device label, including its online state."""
+        label = f"{device['name']} ({device_id})"
+        french = self.hass.config.language.startswith("fr")
+        if device.get("online") is True:
+            label += " - en ligne" if french else " - online"
+        elif device.get("online") is False:
+            label += " - hors ligne" if french else " - offline"
+        return label
+
+    async def _async_prepare_device(self, device_id: str) -> str:
+        """Read the device detail and try to locate it on the LAN."""
+        try:
+            details = await asyncio.wait_for(
+                self.hass.async_add_executor_job(
+                    get_device,
+                    self._cloud_data[CONF_REGION],
+                    self._cloud_data[CONF_ACCESS_ID],
+                    self._cloud_data[CONF_ACCESS_SECRET],
+                    device_id,
+                ),
+                timeout=20,
+            )
+        except TimeoutError:
+            LOGGER.warning("Tuya Cloud device detail timed out for %s", device_id)
+            details = {}
+        except Exception:
+            LOGGER.exception("Unexpected Tuya Cloud device detail error")
+            details = {}
+
+        if details:
+            self._selected.update(details)
+            if details.get("ip"):
+                self._defaults[CONF_HOST] = str(details["ip"])
+            if details.get("local_key"):
+                self._defaults[CONF_LOCAL_KEY] = str(details["local_key"])
+            if details.get("name"):
+                self._defaults[CONF_NAME] = str(details["name"])
+
+        if self._defaults.get(CONF_HOST):
+            return str(self._defaults[CONF_HOST])
+
+        host = await self._discover_host(
+            device_id,
+            str(self._defaults.get(CONF_LOCAL_KEY) or ""),
+        )
+        self._defaults[CONF_HOST] = host
+        return host
+
     async def async_step_cloud_device(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Select the charger among the devices of the Tuya account."""
-        options = []
-        for device_id, device in self._devices.items():
-            label = f"{device['name']} ({device_id})"
-            if device.get("online") is True:
-                label += " - online"
-            elif device.get("online") is False:
-                label += " - offline"
-            options.append({"value": device_id, "label": label})
+        options = [
+            {"value": device_id, "label": self._device_label(device_id, device)}
+            for device_id, device in self._devices.items()
+        ]
 
-        if user_input is not None:
+        if user_input:
             device_id = str(user_input[CONF_DEVICE_ID])
-            device = self._devices[device_id]
+            device = self._devices.get(device_id)
+            if device is None:
+                return self.async_show_form(
+                    step_id="cloud_device",
+                    data_schema=vol.Schema(
+                        {
+                            vol.Required(CONF_DEVICE_ID): SelectSelector(
+                                SelectSelectorConfig(
+                                    options=options,
+                                    mode=SelectSelectorMode.DROPDOWN,
+                                )
+                            )
+                        }
+                    ),
+                    errors={"base": "unknown"},
+                )
             self._selected = device
             self._defaults = {
                 CONF_DEVICE_ID: device_id,
@@ -263,38 +408,30 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_NAME: str(device.get("name") or NAME),
             }
 
-            try:
-                details = await asyncio.wait_for(
-                    self.hass.async_add_executor_job(
-                        get_device,
-                        self._cloud_data[CONF_REGION],
-                        self._cloud_data[CONF_ACCESS_ID],
-                        self._cloud_data[CONF_ACCESS_SECRET],
-                        device_id,
-                    ),
-                    timeout=20,
-                )
-            except TimeoutError:
-                details = {}
-            if details:
-                if details.get("ip"):
-                    self._defaults[CONF_HOST] = str(details["ip"])
-                if details.get("local_key"):
-                    self._defaults[CONF_LOCAL_KEY] = str(details["local_key"])
-                if details.get("name"):
-                    self._defaults[CONF_NAME] = str(details["name"])
-
             await self.async_set_unique_id(device_id)
             self._abort_if_unique_id_configured()
 
-            if not self._defaults[CONF_HOST]:
-                self._defaults[CONF_HOST] = await self._discover_host(
-                    device_id,
-                    self._defaults[CONF_LOCAL_KEY],
+            self._discover_task = self.hass.async_create_task(
+                self._async_prepare_device(device_id), eager_start=False
+            )
+
+        if self._discover_task is not None:
+            if not self._discover_task.done():
+                return self.async_show_progress(
+                    step_id="cloud_device",
+                    progress_action="identify_charger",
+                    progress_task=self._discover_task,
                 )
-            if not self._defaults[CONF_HOST]:
-                return await self.async_step_host()
-            return await self.async_step_local()
+            task, self._discover_task = self._discover_task, None
+            try:
+                host = task.result()
+            except Exception:
+                LOGGER.exception("Unexpected error while locating the charger")
+                host = ""
+            self._defaults[CONF_HOST] = host
+            if host:
+                return self.async_show_progress_done(next_step_id="local_done")
+            return self.async_show_progress_done(next_step_id="host")
 
         return self.async_show_form(
             step_id="cloud_device",
@@ -311,31 +448,75 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def _discover_host(self, device_id: str, local_key: str) -> str:
+        """Find the LAN address of a known Tuya device."""
         try:
             devices = await self.hass.async_add_executor_job(scan_udp, 8)
         except Exception:
+            LOGGER.exception("Tuya UDP discovery failed")
             devices = []
 
+        LOGGER.debug("Tuya UDP discovery found %d device(s)", len(devices))
         for device in devices:
             if device.get("device_id") == device_id and device.get("ip"):
+                LOGGER.debug(
+                    "Charger %s announced itself at %s", device_id, device["ip"]
+                )
                 return str(device["ip"])
 
         if not local_key:
+            LOGGER.debug("No local key available, skipping the LAN scan")
             return ""
 
         try:
             addresses = await scan_lan(port=6668, timeout=0.5, concurrency=96)
         except Exception:
+            LOGGER.exception("LAN scan failed")
             return ""
 
-        for address in addresses[:24]:
-            try:
-                if await self.hass.async_add_executor_job(
-                    _probe_host, address, device_id, local_key
-                ):
-                    return address
-            except Exception:
-                continue
+        LOGGER.debug(
+            "LAN scan found %d host(s) with port 6668 open", len(addresses)
+        )
+        if not addresses:
+            return ""
+
+        host = await self._probe_hosts(addresses, device_id, local_key)
+        if host:
+            LOGGER.debug("Charger %s authenticated at %s", device_id, host)
+        else:
+            LOGGER.debug(
+                "No host among %d candidate(s) accepted device %s",
+                len(addresses),
+                device_id,
+            )
+        return host
+
+    async def _probe_hosts(
+        self, addresses: list[str], device_id: str, local_key: str
+    ) -> str:
+        """Probe candidate hosts in parallel; the right one accepts the key."""
+        semaphore = asyncio.Semaphore(8)
+
+        async def probe(address: str) -> str:
+            async with semaphore:
+                try:
+                    if await self.hass.async_add_executor_job(
+                        _probe_host, address, device_id, local_key
+                    ):
+                        return address
+                except Exception:
+                    LOGGER.debug("Probe failed for %s", address, exc_info=True)
+                return ""
+
+        tasks = [
+            self.hass.async_create_task(probe(address), eager_start=False)
+            for address in addresses
+        ]
+        for finished in asyncio.as_completed(tasks):
+            address = await finished
+            if address:
+                for task in tasks:
+                    task.cancel()
+                return address
         return ""
 
     async def async_step_host(
@@ -344,13 +525,18 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Ask for the local IP when it cannot be discovered."""
         errors: dict[str, str] = {}
 
-        if user_input is not None:
+        if user_input:
             host = str(user_input[CONF_HOST]).strip()
             if not host:
                 errors["base"] = "missing_config"
             else:
-                self._defaults[CONF_HOST] = host
-                return await self.async_step_local()
+                try:
+                    ipaddress.ip_address(host)
+                except ValueError:
+                    errors["base"] = "invalid_host"
+                else:
+                    self._defaults[CONF_HOST] = host
+                    return await self.async_step_local()
 
         return self.async_show_form(
             step_id="host",
@@ -363,6 +549,13 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders={
+                "name": str(
+                    self._selected.get("name")
+                    or self._defaults.get(CONF_NAME)
+                    or NAME
+                )
+            },
         )
 
     def _local_schema(self, defaults: dict[str, Any]) -> vol.Schema:
@@ -395,75 +588,134 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
+    async def _async_validate_local(self) -> tuple[str, Snapshot]:
+        """Validate the local connection with a hard deadline."""
+        host = str(self._local_input[CONF_HOST]).strip()
+        device_id = str(self._local_input[CONF_DEVICE_ID]).strip()
+        LOGGER.info("Starting local validation of charger %s at %s", device_id, host)
+        try:
+            result = await asyncio.wait_for(
+                _validate_connection(
+                    self.hass,
+                    host,
+                    device_id,
+                    str(self._local_input[CONF_LOCAL_KEY]).strip(),
+                    str(self._local_input[CONF_PROTOCOL]),
+                ),
+                timeout=LOCAL_VALIDATION_TIMEOUT,
+            )
+        except TimeoutError:
+            LOGGER.warning(
+                "Local validation of charger %s at %s timed out after %ss",
+                device_id,
+                host,
+                LOCAL_VALIDATION_TIMEOUT,
+            )
+            raise
+        LOGGER.info(
+            "Local validation succeeded for charger %s at %s", device_id, host
+        )
+        return result
+
+    async def async_step_local_done(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Continue the local step after the progress step (distinct step id)."""
+        return await self.async_step_local()
+
     async def async_step_local(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Validate the local connection and create the entry."""
         errors: dict[str, str] = {}
 
-        if user_input is not None:
+        if user_input:
+            self._local_input = dict(user_input)
+            self._local_result = None
+            self._local_error = None
             host = str(user_input[CONF_HOST]).strip()
             device_id = str(user_input[CONF_DEVICE_ID]).strip()
             local_key = str(user_input[CONF_LOCAL_KEY]).strip()
-            protocol = str(user_input[CONF_PROTOCOL])
-            name = str(user_input.get(CONF_NAME) or NAME).strip()
-
             if not host or not device_id or not local_key:
                 errors["base"] = "missing_config"
             else:
-                try:
-                    version, snapshot = await _validate_connection(
-                        self.hass,
-                        host,
-                        device_id,
-                        local_key,
-                        protocol,
-                    )
-                except ChargerBusy:
-                    errors["base"] = "port_busy"
-                except ChargerUnreachable:
-                    errors["base"] = "cannot_connect"
-                except ChargerAuthError:
-                    errors["base"] = "invalid_auth"
-                except ChargerError:
-                    errors["base"] = "cannot_connect"
-                except Exception:
-                    LOGGER.exception("Unexpected charger connection error")
-                    errors["base"] = "unknown"
-                else:
-                    if snapshot.profile == "unknown":
-                        errors["base"] = "unsupported_device"
-                    else:
-                        await self.async_set_unique_id(device_id)
-                        self._abort_if_unique_id_configured()
-                        return self.async_create_entry(
-                            title=name or NAME,
-                            data={
-                                CONF_REGION: self._cloud_data.get(
-                                    CONF_REGION, ""
-                                ),
-                                CONF_ACCESS_ID: self._cloud_data.get(
-                                    CONF_ACCESS_ID, ""
-                                ),
-                                CONF_ACCESS_SECRET: self._cloud_data.get(
-                                    CONF_ACCESS_SECRET, ""
-                                ),
-                                CONF_DEVICE_ID: device_id,
-                                CONF_HOST: host,
-                                CONF_LOCAL_KEY: local_key,
-                                CONF_PROTOCOL: version,
-                                CONF_AREA_ID: str(
-                                    user_input.get(CONF_AREA_ID) or ""
-                                ),
-                            },
-                        )
+                await self.async_set_unique_id(device_id)
+                self._abort_if_unique_id_configured()
+                self._local_task = self.hass.async_create_task(
+                    self._async_validate_local(), eager_start=False
+                )
+
+        if self._local_task is not None:
+            if not self._local_task.done():
+                return self.async_show_progress(
+                    step_id="local",
+                    progress_action="test_connection",
+                    progress_task=self._local_task,
+                    description_placeholders={
+                        "host": str(self._local_input.get(CONF_HOST, ""))
+                    },
+                )
+            task, self._local_task = self._local_task, None
+            try:
+                self._local_result = task.result()
+            except TimeoutError:
+                self._local_error = "timeout"
+            except ChargerBusy:
+                self._local_error = "port_busy"
+            except ChargerUnreachable:
+                self._local_error = "cannot_connect"
+            except ChargerAuthError:
+                self._local_error = "invalid_auth"
+            except ChargerError:
+                self._local_error = "cannot_connect"
+            except Exception:
+                LOGGER.exception("Unexpected charger connection error")
+                self._local_error = "unknown"
+            return self.async_show_progress_done(next_step_id="local_done")
+
+        if self._local_error is not None:
+            errors["base"] = self._local_error
+            self._local_error = None
+
+        if self._local_result is not None:
+            version, snapshot = self._local_result
+            self._local_result = None
+            if snapshot.profile == "unknown":
+                errors["base"] = "unsupported_device"
+            else:
+                data = self._local_input
+                device_id = str(data[CONF_DEVICE_ID]).strip()
+                return self.async_create_entry(
+                    title=str(data.get(CONF_NAME) or NAME).strip() or NAME,
+                    data={
+                        CONF_REGION: self._cloud_data.get(CONF_REGION, ""),
+                        CONF_ACCESS_ID: self._cloud_data.get(
+                            CONF_ACCESS_ID, ""
+                        ),
+                        CONF_ACCESS_SECRET: self._cloud_data.get(
+                            CONF_ACCESS_SECRET, ""
+                        ),
+                        CONF_DEVICE_ID: device_id,
+                        CONF_HOST: str(data[CONF_HOST]).strip(),
+                        CONF_LOCAL_KEY: str(data[CONF_LOCAL_KEY]).strip(),
+                        CONF_PROTOCOL: version,
+                        CONF_AREA_ID: str(data.get(CONF_AREA_ID) or ""),
+                    },
+                )
 
         return self.async_show_form(
             step_id="local",
             data_schema=self._local_schema(
-                user_input if user_input is not None else self._defaults
+                self._local_input if self._local_input else self._defaults
             ),
             errors=errors,
+            description_placeholders={
+                "host": str(
+                    self._local_input.get(CONF_HOST)
+                    or self._defaults.get(CONF_HOST)
+                    or ""
+                )
+            },
         )
 
     async def async_step_reauth(

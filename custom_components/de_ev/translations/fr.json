@@ -25,14 +25,14 @@
       },
       "cloud_device": {
         "title": "Sélectionner la borne",
-        "description": "Choisissez l'appareil à ajouter. Sa clé locale est lue depuis Tuya Cloud ; son IP locale est découverte sur le réseau.",
+        "description": "Choisissez la borne à ajouter. Sa clé locale est lue dans Tuya Cloud, puis l'intégration la cherche sur le réseau local. Si l'IP est introuvable, elle vous sera demandée.",
         "data": {
           "device_id": "Appareil"
         }
       },
       "local": {
         "title": "Connexion locale",
-        "description": "L'intégration teste la connexion et détecte la version du protocole Tuya avant de créer l'entrée.",
+        "description": "L'intégration teste la connexion et détecte la version du protocole Tuya avant de créer l'entrée. Cela peut prendre jusqu'à 30 secondes.",
         "data": {
           "name": "Nom",
           "host": "Adresse IP",
@@ -65,28 +65,39 @@
       },
       "host": {
         "title": "Adresse IP de la borne",
-        "description": "La borne a été trouvée dans Tuya Cloud, mais son IP locale n'a pas pu être découverte automatiquement. Saisissez son adresse IP sur le réseau local (par exemple 192.168.1.43), visible dans la liste des appareils de votre box.",
+        "description": "La borne « {name} » a été trouvée dans Tuya Cloud, mais son IP locale n'a pas pu être découverte automatiquement. Tuya Cloud ne fournit que l'IP publique de votre box, pas l'adresse locale de la borne. Saisissez son IP sur le réseau local (par exemple 192.168.1.43), visible dans la liste des appareils de votre box ou dans l'application Smart Life.",
         "data": {
           "host": "Adresse IP"
+        },
+        "data_description": {
+          "host": "Adresse IP locale de la borne."
         }
       }
     },
     "error": {
-      "cloud_auth_failed": "Tuya Cloud a refusé les identifiants ou les permissions du projet.",
-      "cloud_no_devices": "Aucun appareil n'est lié à ce projet Tuya.",
-      "cloud_timeout": "Tuya Cloud n'a pas répondu à temps.",
-      "cloud_error": "Erreur Tuya Cloud inattendue.",
+      "cloud_auth_failed": "Tuya Cloud a refusé les identifiants. Vérifiez l'Access ID/Secret et que votre compte Smart Life est bien lié à ce projet IoT.",
+      "cloud_no_devices": "Aucun appareil n'est lié à ce projet Tuya. Liez votre compte Smart Life au projet IoT, puis réessayez.",
+      "cloud_timeout": "Tuya Cloud n'a pas répondu à temps. Vérifiez votre connexion Internet et réessayez.",
+      "cloud_error": "Erreur inattendue côté Tuya Cloud. Réessayez ; si cela persiste, consultez les logs Home Assistant.",
       "missing_config": "L'adresse IP, le Device ID et la clé locale sont obligatoires.",
-      "invalid_auth": "La borne a refusé la clé locale.",
-      "cannot_connect": "Impossible de joindre la borne sur le réseau local.",
-      "port_busy": "Le port 6668 est déjà utilisé par un autre client. Fermez Smart Life ou l'application Tuya et réessayez.",
-      "unsupported_device": "L'appareil répond, mais son profil Tuya n'est pas encore pris en charge.",
-      "unknown": "Erreur inattendue lors de la connexion à la borne."
+      "invalid_auth": "La borne a refusé la clé locale. Récupérez la clé actuelle dans Tuya IoT Platform ou Smart Life, puis réessayez.",
+      "cannot_connect": "Impossible de joindre la borne sur {host}:6668. Vérifiez l'IP, que la borne est allumée et sur le même réseau que Home Assistant.",
+      "port_busy": "Le port 6668 est déjà utilisé par un autre client. Fermez Smart Life ou l'application Tuya sur votre téléphone, puis réessayez.",
+      "unsupported_device": "La borne répond, mais son profil Tuya n'est pas encore pris en charge. Ouvrez une issue avec le modèle et les points de données.",
+      "unknown": "Erreur inattendue pendant la connexion. Consultez les logs Home Assistant.",
+      "invalid_host": "Adresse IP invalide. Exemple : 192.168.1.43.",
+      "timeout": "La borne n'a pas répondu dans les 45 secondes. Vérifiez qu'elle est allumée et joignable sur le réseau local, puis réessayez."
     },
     "abort": {
       "already_configured": "Cette borne est déjà configurée.",
       "reauth_successful": "La clé locale a été mise à jour.",
       "reconfigure_successful": "La connexion de la borne a été mise à jour."
+    },
+    "progress": {
+      "title": "Dé EV Charger",
+      "cloud_devices": "Connexion à Tuya Cloud et récupération des appareils…\n\nCela prend généralement quelques secondes, 45 secondes au maximum.",
+      "identify_charger": "Recherche de la borne sur le réseau local…\n\nÉcoute de son annonce Tuya, puis scan du réseau et test d'une connexion authentifiée. Cela peut prendre 15 à 30 secondes.",
+      "test_connection": "Test de la connexion à {host}…\n\nDétection automatique du protocole Tuya (3.5, puis 3.4 et 3.3). Cela peut prendre jusqu'à 45 secondes."
     }
   },
   "options": {

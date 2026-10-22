@@ -28,14 +28,15 @@ def _fetch(
     api_secret: str,
     *,
     new_sign_algorithm: bool,
-) -> Any:
+) -> tuple[Any, dict[str, Any] | None]:
     cloud = tinytuya.Cloud(
         apiRegion=region,
         apiKey=api_key,
         apiSecret=api_secret,
         new_sign_algorithm=new_sign_algorithm,
     )
-    return cloud.getdevices(verbose=False)
+    result = cloud.getdevices(verbose=False)
+    return result, cloud.error
 
 
 def _error_message(result: dict[str, Any]) -> str:
@@ -77,9 +78,18 @@ def list_devices(region: str, api_key: str, api_secret: str) -> list[dict[str, A
     key = api_key.strip()
     secret = api_secret.strip()
 
-    result = _fetch(region, key, secret, new_sign_algorithm=True)
-    if isinstance(result, dict) and "Error" in result:
-        retry = _fetch(region, key, secret, new_sign_algorithm=False)
+    result, error = _fetch(region, key, secret, new_sign_algorithm=True)
+    if error or (isinstance(result, dict) and "Error" in result):
+        retry, retry_error = _fetch(
+            region, key, secret, new_sign_algorithm=False
+        )
+        if retry_error:
+            raise CloudAuthError(
+                "Tuya Cloud rejected the request: "
+                f"{_error_message(retry_error)}. Check that the Smart Home "
+                "Basic Service API is authorized and that the Smart Life "
+                "account is linked to the project."
+            )
         if isinstance(retry, dict) and "Error" in retry:
             raise CloudAuthError(
                 "Tuya Cloud rejected the request: "

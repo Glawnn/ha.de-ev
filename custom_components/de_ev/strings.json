@@ -25,14 +25,14 @@
       },
       "cloud_device": {
         "title": "Select the charger",
-        "description": "Choose the device to add. Its local key is read from Tuya Cloud; the local IP is discovered on the LAN.",
+        "description": "Choose the charger to add. Its local key is read from Tuya Cloud, then the integration looks for it on the LAN. If the IP cannot be discovered, you will be asked for it.",
         "data": {
           "device_id": "Device"
         }
       },
       "local": {
         "title": "Local connection",
-        "description": "The integration tests the connection and detects the Tuya protocol version before creating the entry.",
+        "description": "The integration tests the connection and detects the Tuya protocol version before creating the entry. This can take up to 30 seconds.",
         "data": {
           "name": "Name",
           "host": "IP address",
@@ -65,28 +65,39 @@
       },
       "host": {
         "title": "Charger IP address",
-        "description": "The charger was found in Tuya Cloud, but its local IP could not be discovered automatically. Enter its LAN IP address (for example 192.168.1.43), visible in your router's device list.",
+        "description": "The charger \"{name}\" was found in Tuya Cloud, but its LAN IP could not be discovered automatically. Tuya Cloud only reports your public IP, not the charger's local address. Enter its LAN IP address (for example 192.168.1.43), visible in your router's device list or in the Smart Life app.",
         "data": {
           "host": "IP address"
+        },
+        "data_description": {
+          "host": "Local IP address of the charger."
         }
       }
     },
     "error": {
-      "cloud_auth_failed": "Tuya Cloud rejected the credentials or project permissions.",
-      "cloud_no_devices": "No devices are linked to this Tuya project.",
-      "cloud_timeout": "Tuya Cloud did not answer in time.",
-      "cloud_error": "Unexpected Tuya Cloud error.",
-      "missing_config": "IP address, device ID and local key are required.",
-      "invalid_auth": "The charger rejected the local key.",
-      "cannot_connect": "Cannot reach the charger on the local network.",
-      "port_busy": "Port 6668 is already used by another client. Close Smart Life or the Tuya app and retry.",
-      "unsupported_device": "The device connected, but its Tuya profile is not supported yet.",
-      "unknown": "Unexpected error while connecting to the charger."
+      "cloud_auth_failed": "Tuya Cloud rejected the credentials. Check the Access ID/Secret and that your Smart Life account is linked to this IoT project.",
+      "cloud_no_devices": "No device is linked to this Tuya project. Link your Smart Life account to the IoT project, then retry.",
+      "cloud_timeout": "Tuya Cloud did not answer in time. Check your Internet connection and retry.",
+      "cloud_error": "Unexpected error from Tuya Cloud. Retry; if it persists, check the Home Assistant logs.",
+      "missing_config": "IP address, Device ID and local key are required.",
+      "invalid_auth": "The charger rejected the local key. Copy the current key from Tuya IoT Platform or Smart Life and retry.",
+      "cannot_connect": "Cannot reach the charger on {host}:6668. Check the IP, that the charger is powered on and on the same network as Home Assistant.",
+      "port_busy": "Port 6668 is already used by another client. Close Smart Life or the Tuya app on your phone, then retry.",
+      "unsupported_device": "The charger answered, but its Tuya profile is not supported yet. Open an issue with the model and data points.",
+      "unknown": "Unexpected error while connecting. Check the Home Assistant logs.",
+      "invalid_host": "Invalid IP address. Example: 192.168.1.43.",
+      "timeout": "The charger did not answer within 45 seconds. Check that it is powered on and reachable on the local network, then retry."
     },
     "abort": {
       "already_configured": "This charger is already configured.",
       "reauth_successful": "The local key was updated.",
       "reconfigure_successful": "The charger connection was updated."
+    },
+    "progress": {
+      "title": "Dé EV Charger",
+      "cloud_devices": "Connecting to Tuya Cloud and fetching your devices…\n\nThis usually takes a few seconds, 45 seconds at most.",
+      "identify_charger": "Looking for the charger on the local network…\n\nListening for its Tuya announcement, then scanning the LAN and testing an authenticated connection. This can take 15 to 30 seconds.",
+      "test_connection": "Testing the connection to {host}…\n\nDetecting the Tuya protocol automatically (3.5, then 3.4 and 3.3). This can take up to 45 seconds."
     }
   },
   "options": {
