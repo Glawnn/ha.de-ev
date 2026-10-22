@@ -1,7 +1,7 @@
 # Environnement de développement Home Assistant
 
-Ce dossier fournit un environnement Home Assistant jetable, préconfiguré et
-réutilisable pour développer une intégration personnalisée.
+Le dossier `sandbox/` fournit un environnement Home Assistant jetable,
+préconfiguré et réutilisable pour développer une intégration personnalisée.
 
 Le composant n'est pas copié dans l'image : il est monté en lecture seule dans
 `/config/custom_components/<domaine>`. Toute modification du code est donc
@@ -73,7 +73,7 @@ make dev COMPONENT_NAME=mon_integration HA_PORT=8124
 |---|---|---|
 | `COMPONENT_NAME` | `de_ev` | Nom du dossier et domaine du composant |
 | `COMPONENT_PATH` | `custom_components/<nom>` | Chemin source monté dans HA |
-| `HA_CONFIG_DIR` | `dev/ha-config` | Configuration persistante HA |
+| `HA_CONFIG_DIR` | `sandbox/ha-config` | Configuration persistante HA |
 | `HA_BIND` | `127.0.0.1` | Interface d'écoute |
 | `HA_PORT` | `8123` | Port local |
 | `HA_IMAGE` | `ghcr.io/home-assistant/home-assistant:stable` | Image HA |
@@ -85,14 +85,14 @@ make dev COMPONENT_NAME=mon_integration HA_PORT=8124
 
 ## Réutilisation dans un autre projet
 
-1. Copier `Makefile` et le dossier `dev/` dans le nouveau dépôt.
+1. Copier `Makefile` et le dossier `sandbox/` dans le nouveau dépôt.
 2. Adapter `COMPONENT_NAME` et, si besoin, `COMPONENT_PATH`.
 3. Vérifier que le composant contient un `manifest.json`.
 4. Lancer `make dev`.
 
-Le dossier `dev/ha-config/` est autonome : il contient la configuration HA et
-un `.gitignore` qui exclut les données sensibles (`.storage`, base de données,
-logs).
+Le dossier `sandbox/ha-config/` est autonome : il contient la configuration HA
+et un `.gitignore` qui exclut les données sensibles (`.storage`, base de
+données, logs).
 
 Pour utiliser plusieurs environnements en parallèle, changer `HA_PORT` et
 `COMPOSE_PROJECT_NAME` :
@@ -103,7 +103,7 @@ make dev COMPONENT_NAME=mon_integration HA_PORT=8124 COMPOSE_PROJECT_NAME=mon-in
 
 ## Données et sécurité
 
-- `dev/ha-config/.storage/` contient les utilisateurs, tokens et entrées de
+- `sandbox/ha-config/.storage/` contient les utilisateurs, tokens et entrées de
   configuration : **ne jamais le committer**.
 - Le port est bindé sur `127.0.0.1` par défaut. Pour exposer HA sur le réseau,
   utiliser `HA_BIND=0.0.0.0` en connaissance de cause.

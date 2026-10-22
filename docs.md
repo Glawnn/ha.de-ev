@@ -187,7 +187,7 @@ ha.de-ev/
 │       ├── cloud.py
 │       ├── discovery.py
 │       └── sessions.py
-├── dev/
+├── sandbox/
 │   ├── docker-compose.yml
 │   ├── ha-config/
 │   │   ├── configuration.yaml
@@ -214,7 +214,7 @@ ha.de-ev/
 └── docs.md
 ```
 
-En phase 0.2, seuls le `Makefile`, `dev/`, `README.md`, `.gitignore` et le
+En phase 0.2, seuls le `Makefile`, `sandbox/`, `README.md`, `.gitignore` et le
 squelette minimal de `custom_components/de_ev` existent. Le reste de
 l'arborescence est la cible v1 et sera ajouté au fil des phases.
 
@@ -631,7 +631,7 @@ Engine sous Linux), Docker Compose v2, `make` et Python 3.
 Tâches :
 
 - ajouter un `Makefile` réutilisable ;
-- ajouter `dev/docker-compose.yml` avec l'image
+- ajouter `sandbox/docker-compose.yml` avec l'image
   `ghcr.io/home-assistant/home-assistant:stable` ;
 - monter le composant en lecture seule dans
   `/config/custom_components/<domaine>` ;
@@ -639,7 +639,7 @@ Tâches :
   logs debug) ;
 - ajouter un script d'onboarding best-effort via l'API HA ;
 - ajouter un `.gitignore` pour `.storage`, la base et les logs ;
-- documenter la réutilisation dans `dev/README.md`.
+- documenter la réutilisation dans `sandbox/README.md`.
 
 Commandes :
 
@@ -913,7 +913,8 @@ une modification, redémarrer HA (`make restart`) ou utiliser le redémarrage
 rapide de l'interface.
 
 Commandes utiles : `make logs`, `make config`, `make down`, `make reset`.
-Voir [`dev/README.md`](dev/README.md) pour la réutilisation et les variables.
+Voir [`sandbox/README.md`](sandbox/README.md) pour la réutilisation et les
+variables.
 
 ### 17.2 Manuelle
 

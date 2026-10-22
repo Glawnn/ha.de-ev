@@ -29,8 +29,8 @@ make reset    # repartir d'un HA vierge
 
 ## Environnement réutilisable
 
-Le dossier `dev/` et le `Makefile` sont génériques. Pour les réutiliser dans un
-autre projet Home Assistant :
+Le dossier `sandbox/` et le `Makefile` sont génériques. Pour les réutiliser dans
+un autre projet Home Assistant :
 
 ```bash
 make dev COMPONENT_NAME=mon_integration HA_PORT=8124
@@ -40,8 +40,8 @@ Le composant est monté en lecture seule dans
 `/config/custom_components/<domaine>`, donc les modifications sont visibles
 après un redémarrage de Home Assistant, sans reconstruire d'image.
 
-Voir [`dev/README.md`](dev/README.md) pour les variables, les commandes et les
-instructions de réutilisation.
+Voir [`sandbox/README.md`](sandbox/README.md) pour les variables, les commandes
+et les instructions de réutilisation.
 
 ## Documentation
 
@@ -50,7 +50,7 @@ La spécification complète (architecture, mapping des DP, entités, sessions,
 
 ## Sécurité
 
-- Ne jamais committer `dev/ha-config/.storage/`, les bases de données ou les
+- Ne jamais committer `sandbox/ha-config/.storage/`, les bases de données ou les
   logs.
 - Les identifiants Tuya et la clé locale seront stockés dans la config entry
   Home Assistant, jamais dans le dépôt.

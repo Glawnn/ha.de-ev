@@ -10,15 +10,15 @@ htmlcov/
 
 # Local secrets / overrides
 .env
-dev/.env
+sandbox/.env
 
-# Home Assistant dev runtime
-dev/ha-config/.storage/
-dev/ha-config/*.db
-dev/ha-config/*.db-*
-dev/ha-config/home-assistant.log
-dev/ha-config/home-assistant.log.*
-dev/ha-config/deps/
-dev/ha-config/tts/
-dev/ha-config/backups/
-dev/ha-config/.cloud/
+# Home Assistant sandbox runtime
+sandbox/ha-config/.storage/
+sandbox/ha-config/*.db
+sandbox/ha-config/*.db-*
+sandbox/ha-config/home-assistant.log
+sandbox/ha-config/home-assistant.log.*
+sandbox/ha-config/deps/
+sandbox/ha-config/tts/
+sandbox/ha-config/backups/
+sandbox/ha-config/.cloud/
