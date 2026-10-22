@@ -1,19 +1,182 @@
 {
   "config": {
+    "flow_title": "Dé EV Charger",
     "step": {
       "user": {
-        "title": "Dé EV Charger",
-        "description": "Créez l'entrée de la borne. La découverte cloud et la connexion locale seront ajoutées dans les prochaines phases.",
+        "title": "Ajouter une borne",
+        "description": "Retrouvez la borne via Tuya Cloud, ou saisissez ses paramètres de connexion locale.",
+        "menu_options": {
+          "cloud": "Tuya Cloud",
+          "local": "Connexion locale"
+        }
+      },
+      "cloud": {
+        "title": "Tuya Cloud",
+        "description": "Saisissez l'Access ID et l'Access Secret de votre projet Tuya IoT. Le compte Smart Life doit être lié à ce projet.",
         "data": {
-          "name": "Nom"
+          "region": "Région",
+          "access_id": "Access ID",
+          "access_secret": "Access Secret"
         },
         "data_description": {
-          "name": "Nom affiché dans Home Assistant."
+          "access_id": "Client ID du projet Tuya IoT.",
+          "access_secret": "Client Secret du projet Tuya IoT."
+        }
+      },
+      "cloud_device": {
+        "title": "Sélectionner la borne",
+        "description": "Choisissez la borne à ajouter. Sa clé locale est lue dans Tuya Cloud, puis l'intégration la cherche sur le réseau local. Si l'IP est introuvable, elle vous sera demandée.",
+        "data": {
+          "device_id": "Appareil"
+        }
+      },
+      "local": {
+        "title": "Connexion locale",
+        "description": "L'intégration teste la connexion et détecte la version du protocole Tuya avant de créer l'entrée. Cela peut prendre jusqu'à 30 secondes.",
+        "data": {
+          "name": "Nom",
+          "host": "Adresse IP",
+          "device_id": "Device ID",
+          "local_key": "Clé locale",
+          "protocol_version": "Version du protocole",
+          "area_id": "Pièce"
+        },
+        "data_description": {
+          "host": "Adresse IP locale de la borne sur le même réseau que Home Assistant.",
+          "local_key": "Clé locale Tuya de 16 caractères.",
+          "protocol_version": "Auto essaie 3.5, puis 3.4 et 3.3."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Mettre à jour la clé locale",
+        "description": "La borne a refusé la clé locale enregistrée. Saisissez la nouvelle clé.",
+        "data": {
+          "local_key": "Clé locale"
+        }
+      },
+      "reconfigure": {
+        "title": "Mettre à jour la connexion",
+        "description": "Modifiez l'adresse IP, la clé locale ou la version du protocole.",
+        "data": {
+          "host": "Adresse IP",
+          "local_key": "Clé locale",
+          "protocol_version": "Version du protocole"
+        }
+      },
+      "host": {
+        "title": "Adresse IP de la borne",
+        "description": "La borne « {name} » a été trouvée dans Tuya Cloud, mais son IP locale n'a pas pu être découverte automatiquement. Tuya Cloud ne fournit que l'IP publique de votre box, pas l'adresse locale de la borne. Saisissez son IP sur le réseau local (par exemple 192.168.1.43), visible dans la liste des appareils de votre box ou dans l'application Smart Life.",
+        "data": {
+          "host": "Adresse IP"
+        },
+        "data_description": {
+          "host": "Adresse IP locale de la borne."
         }
       }
     },
+    "error": {
+      "cloud_auth_failed": "Tuya Cloud a refusé les identifiants. Vérifiez l'Access ID/Secret et que votre compte Smart Life est bien lié à ce projet IoT.",
+      "cloud_no_devices": "Aucun appareil n'est lié à ce projet Tuya. Liez votre compte Smart Life au projet IoT, puis réessayez.",
+      "cloud_timeout": "Tuya Cloud n'a pas répondu à temps. Vérifiez votre connexion Internet et réessayez.",
+      "cloud_error": "Erreur inattendue côté Tuya Cloud. Réessayez ; si cela persiste, consultez les logs Home Assistant.",
+      "missing_config": "L'adresse IP, le Device ID et la clé locale sont obligatoires.",
+      "invalid_auth": "La borne a refusé la clé locale. Récupérez la clé actuelle dans Tuya IoT Platform ou Smart Life, puis réessayez.",
+      "cannot_connect": "Impossible de joindre la borne sur {host}:6668. Vérifiez l'IP, que la borne est allumée et sur le même réseau que Home Assistant.",
+      "port_busy": "Le port 6668 est déjà utilisé par un autre client. Fermez Smart Life ou l'application Tuya sur votre téléphone, puis réessayez.",
+      "unsupported_device": "La borne répond, mais son profil Tuya n'est pas encore pris en charge. Ouvrez une issue avec le modèle et les points de données.",
+      "unknown": "Erreur inattendue pendant la connexion. Consultez les logs Home Assistant.",
+      "invalid_host": "Adresse IP invalide. Exemple : 192.168.1.43.",
+      "timeout": "La borne n'a pas répondu dans les 45 secondes. Vérifiez qu'elle est allumée et joignable sur le réseau local, puis réessayez."
+    },
     "abort": {
-      "single_instance_allowed": "Une seule instance est autorisée."
+      "already_configured": "Cette borne est déjà configurée.",
+      "reauth_successful": "La clé locale a été mise à jour.",
+      "reconfigure_successful": "La connexion de la borne a été mise à jour."
+    },
+    "progress": {
+      "title": "Dé EV Charger",
+      "cloud_devices": "Connexion à Tuya Cloud et récupération des appareils…\n\nCela prend généralement quelques secondes, 45 secondes au maximum.",
+      "identify_charger": "Recherche de la borne sur le réseau local…\n\nÉcoute de son annonce Tuya, puis scan du réseau et test d'une connexion authentifiée. Cela peut prendre 15 à 30 secondes.",
+      "test_connection": "Test de la connexion à {host}…\n\nDétection automatique du protocole Tuya (3.5, puis 3.4 et 3.3). Cela peut prendre jusqu'à 45 secondes."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options de la borne",
+        "description": "Configurez le polling et les limites de courant.",
+        "data": {
+          "scan_interval": "Intervalle de polling (secondes)",
+          "min_current": "Courant minimum (A)",
+          "max_current": "Courant maximum (A)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "État",
+        "state": {
+          "unknown": "Inconnu",
+          "sleep": "En veille",
+          "idle": "Disponible",
+          "plugged_in": "Véhicule détecté",
+          "charging": "En charge",
+          "waiting": "En attente",
+          "fault": "Défaut",
+          "paused": "En pause",
+          "charged": "Charge terminée"
+        }
+      },
+      "power": {
+        "name": "Puissance"
+      },
+      "voltage": {
+        "name": "Tension"
+      },
+      "current": {
+        "name": "Courant"
+      },
+      "temperature": {
+        "name": "Température"
+      },
+      "energy_session": {
+        "name": "Énergie de session"
+      },
+      "session_duration": {
+        "name": "Durée de session"
+      },
+      "max_current": {
+        "name": "Courant maximum"
+      },
+      "work_state": {
+        "name": "État interne"
+      },
+      "last_session_energy": {
+        "name": "Énergie de la dernière session"
+      }
+    },
+    "binary_sensor": {
+      "charging": {
+        "name": "En charge"
+      },
+      "plugged": {
+        "name": "Véhicule branché"
+      },
+      "fault": {
+        "name": "Défaut"
+      }
+    },
+    "switch": {
+      "charge_session": {
+        "name": "Session de charge"
+      }
+    },
+    "number": {
+      "charge_current": {
+        "name": "Courant de charge"
+      }
     }
   }
 }
