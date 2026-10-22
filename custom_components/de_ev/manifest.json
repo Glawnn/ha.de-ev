@@ -1,0 +1,13 @@
+{
+  "domain": "de_ev",
+  "name": "Dé EV Charger",
+  "version": "0.0.1",
+  "config_flow": true,
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "documentation": "https://github.com/Glawnn/ha.de-ev",
+  "issue_tracker": "https://github.com/Glawnn/ha.de-ev/issues",
+  "codeowners": ["@Glawnn"],
+  "requirements": [],
+  "loggers": ["tinytuya"]
+}

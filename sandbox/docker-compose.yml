@@ -1,0 +1,24 @@
+services:
+  homeassistant:
+    image: ${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:stable}
+    container_name: ${HA_CONTAINER_NAME:-de_ev-dev}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "${HA_BIND:-127.0.0.1}:${HA_PORT:-8123}:8123"
+    volumes:
+      - "${HA_CONFIG_DIR:-./ha-config}:/config"
+      - "${COMPONENT_PATH:-../custom_components/de_ev}:/config/custom_components/${COMPONENT_NAME:-de_ev}:ro"
+    environment:
+      TZ: ${HA_TIMEZONE:-Europe/Paris}
+      PYTHONDONTWRITEBYTECODE: "1"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8123/manifest.json', timeout=5)"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s

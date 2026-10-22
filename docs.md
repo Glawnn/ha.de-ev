@@ -187,6 +187,14 @@ ha.de-ev/
 │       ├── cloud.py
 │       ├── discovery.py
 │       └── sessions.py
+├── sandbox/
+│   ├── docker-compose.yml
+│   ├── ha-config/
+│   │   ├── configuration.yaml
+│   │   └── .gitignore
+│   ├── scripts/
+│   │   └── onboard.py
+│   └── README.md
 ├── tests/
 │   ├── conftest.py
 │   ├── test_config_flow.py
@@ -197,12 +205,18 @@ ha.de-ev/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
+├── Makefile
 ├── hacs.json
 ├── pyproject.toml
+├── .gitignore
 ├── README.md
 ├── LICENSE
 └── docs.md
 ```
+
+En phase 0.2, seuls le `Makefile`, `sandbox/`, `README.md`, `.gitignore` et le
+squelette minimal de `custom_components/de_ev` existent. Le reste de
+l'arborescence est la cible v1 et sera ajouté au fil des phases.
 
 ### 6.1 Manifest
 
@@ -219,6 +233,10 @@ ha.de-ev/
   "dhcp": [{"registered_devices": true}]
 }
 ```
+
+Le manifest de la phase 0.2 est volontairement sans dépendance externe
+(`"requirements": []`) pour valider le montage et le chargement du composant.
+`tinytuya` sera ajouté en phase 0.1.
 
 ---
 
@@ -601,19 +619,72 @@ Le capteur `sensor.de_ev_energy_session` repart à zéro à chaque session. C'es
 
 ## 15. Développement pas à pas
 
-### Phase 0 — Bootstrap du projet
+### Phase 0.2 — Environnement de développement Docker
+
+**But** : disposer d'un Home Assistant jetable, préconfiguré et réutilisable,
+avec le composant monté, pour tester chaque phase sans toucher à l'instance de
+production.
+
+**Prérequis** : Docker Desktop avec l'intégration WSL2 activée (ou Docker
+Engine sous Linux), Docker Compose v2, `make` et Python 3.
+
+Tâches :
+
+- ajouter un `Makefile` réutilisable ;
+- ajouter `sandbox/docker-compose.yml` avec l'image
+  `ghcr.io/home-assistant/home-assistant:stable` ;
+- monter le composant en lecture seule dans
+  `/config/custom_components/<domaine>` ;
+- ajouter une configuration HA minimale (`default_config`, localisation,
+  logs debug) ;
+- ajouter un script d'onboarding best-effort via l'API HA ;
+- ajouter un `.gitignore` pour `.storage`, la base et les logs ;
+- documenter la réutilisation dans `sandbox/README.md`.
+
+Commandes :
+
+```bash
+make dev       # démarre HA + onboarding
+make logs      # suit les logs
+make config    # vérifie la configuration HA
+make down      # arrête
+make reset     # repart d'un HA vierge
+make compose-config
+```
+
+**Réutilisation** :
+
+```bash
+make dev COMPONENT_NAME=mon_integration HA_PORT=8124
+```
+
+**Critère d'acceptation** :
+
+- `make dev` démarre HA sur `http://127.0.0.1:8123` ;
+- le composant apparaît dans « Ajouter une intégration » et le config flow
+  démarre ;
+- `make config` valide la configuration ;
+- `make down` arrête proprement le conteneur ;
+- le même `Makefile` fonctionne pour un autre composant en changeant
+  `COMPONENT_NAME`.
+
+> Si `docker` n'est pas trouvé dans WSL2, activer l'intégration de la
+> distribution dans Docker Desktop : **Settings → Resources → WSL Integration**.
+
+### Phase 0.1 — Bootstrap de l'intégration
 
 **But** : avoir un squelette installable dans Home Assistant.
 
 Tâches :
 
-- créer `custom_components/de_ev/` ;
-- ajouter `manifest.json`, `const.py`, `strings.json` ;
-- ajouter `translations/fr.json` et `translations/en.json` ;
-- ajouter `pyproject.toml`, `ruff`, `pytest`, `pytest-homeassistant-custom-component` ;
+- compléter le squelette existant de `custom_components/de_ev/` ;
+- remplacer le manifest placeholder par le manifest v0.1 avec `tinytuya` ;
+- compléter `strings.json` et les traductions ;
+- ajouter `pyproject.toml`, `ruff`, `pytest`,
+  `pytest-homeassistant-custom-component` ;
 - ajouter `hacs.json` ;
 - ajouter le workflow CI ;
-- rédiger le README d'installation.
+- compléter le README d'installation.
 
 **Critère d'acceptation** :
 
@@ -824,7 +895,30 @@ pytest -q
 
 ## 17. Installation
 
-### 17.1 Manuelle
+### 17.1 Développement Docker
+
+Pour développer sans toucher à l'instance de production :
+
+```bash
+make dev
+```
+
+Prérequis : Docker avec intégration WSL2, Docker Compose v2, `make` et Python 3.
+L'interface est disponible sur <http://127.0.0.1:8123>. Le script d'onboarding
+crée le compte `dev` et affiche le mot de passe ; en cas d'échec, créer le
+compte dans l'interface. Le compte et la locale se règlent dans
+`sandbox/config.yaml`, créé depuis `sandbox/config.example.yaml` et ignoré par
+Git. Un mot de passe vide est généré aléatoirement.
+
+Le composant est monté depuis `custom_components/de_ev` en lecture seule. Après
+une modification, redémarrer HA (`make restart`) ou utiliser le redémarrage
+rapide de l'interface.
+
+Commandes utiles : `make logs`, `make config`, `make down`, `make reset`.
+Voir [`sandbox/README.md`](sandbox/README.md) pour la réutilisation et les
+variables.
+
+### 17.2 Manuelle
 
 ```bash
 cp -r custom_components/de_ev /config/custom_components/
@@ -840,7 +934,7 @@ Puis :
 6. valider l'IP et le protocole ;
 7. choisir la pièce.
 
-### 17.2 HACS
+### 17.3 HACS
 
 Le dépôt est structuré avec `custom_components/de_ev/` à la racine, donc il pourra être ajouté comme dépôt personnalisé HACS lorsque la v1 sera publiée.
 
@@ -875,10 +969,24 @@ Le dépôt est structuré avec `custom_components/de_ev/` à la racine, donc il 
 | entité indisponible | DP absent du firmware | désactiver l'entité |
 | dashboard vide | capteur non ajouté | ajouter dans Énergie |
 | historique vide | première session pas encore terminée | attendre la fin de charge |
+| `docker: command not found` | intégration WSL2 désactivée | activer Docker Desktop → WSL Integration |
+| `port is already allocated` | port 8123 occupé | `make dev HA_PORT=8124` |
+| onboarding automatique en échec | API HA changée / instance déjà configurée | finir dans l'UI ou `make reset` |
 
 ---
 
 ## 20. Roadmap
+
+### Outillage — phase 0.2 (avant v0.1.0)
+
+Cette étape n'est pas une version produit : elle précède la v0.1.0.
+
+- `Makefile` réutilisable ;
+- environnement Docker Compose Home Assistant ;
+- montage en lecture seule du composant ;
+- onboarding automatique best-effort ;
+- configuration YAML locale (`sandbox/config.yaml`, ignorée par Git) ;
+- documentation de réutilisation.
 
 ### v0.1.0
 
@@ -919,6 +1027,9 @@ Le dépôt est structuré avec `custom_components/de_ev/` à la racine, donc il 
 | Sujet | Décision |
 |---|---|
 | Base | projet from scratch, pas de fork |
+| Environnement de dev | Docker Compose + Makefile réutilisable (phase 0.2) |
+| Montage dev | composant en lecture seule dans `/config/custom_components/<domaine>` |
+| Onboarding dev | API HA, fallback UI |
 | Cloud | bootstrap uniquement |
 | Contrôle | local |
 | Zone | région Tuya + area HA optionnelle |
@@ -941,4 +1052,6 @@ Le dépôt est structuré avec `custom_components/de_ev/` à la racine, donc il 
 
 ## 23. Prochaine étape
 
-Commencer par la **phase 0** : créer le squelette `custom_components/de_ev`, le manifest, les traductions, la CI et les premiers tests.
+Valider la **phase 0.2** (`make dev`, `make config`, `make down`), puis passer à
+la **phase 0.1** : compléter le squelette `custom_components/de_ev`, le
+manifest, les traductions, la CI et les premiers tests.
