@@ -3,7 +3,13 @@
     "step": {
       "user": {
         "title": "Dé EV Charger",
-        "description": "Development scaffold. Tuya cloud configuration and the local charger connection will be added in later phases."
+        "description": "Create the charger entry. Cloud discovery and the local connection will be added in the next phases.",
+        "data": {
+          "name": "Name"
+        },
+        "data_description": {
+          "name": "Name shown in Home Assistant."
+        }
       }
     },
     "abort": {

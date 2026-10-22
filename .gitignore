@@ -7,6 +7,9 @@ __pycache__/
 .mypy_cache/
 .coverage
 htmlcov/
+*.egg-info/
+build/
+dist/
 
 # Local secrets / overrides
 .env
@@ -15,6 +18,7 @@ sandbox/config.yaml
 
 # Home Assistant sandbox runtime
 sandbox/ha-config/.storage/
+sandbox/ha-config/.cache/
 sandbox/ha-config/.HA_VERSION
 sandbox/ha-config/.ha_run.lock
 sandbox/ha-config/*.db

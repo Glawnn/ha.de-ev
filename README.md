@@ -3,10 +3,10 @@
 Intégration Home Assistant pour une borne de recharge VE pilotée localement via
 Tuya, avec découverte cloud pour le bootstrap.
 
-> État actuel : **phase 0.2 — environnement de développement**. Le composant
-> `custom_components/de_ev` est un squelette volontairement minimal. La
-> configuration Tuya et le contrôle local seront ajoutés dans les phases
-> suivantes.
+> État actuel : **phase 0.1 — bootstrap de l'intégration**. Le composant
+> `custom_components/de_ev` s'installe et affiche son config flow, mais ne
+> crée pas encore d'entités. La configuration Tuya et le contrôle local seront
+> ajoutés dans les phases suivantes.
 
 ## Démarrage rapide
 
@@ -27,6 +27,46 @@ make logs     # suivre les logs
 make config   # vérifier la configuration HA
 make down     # arrêter
 make reset    # repartir d'un HA vierge
+```
+
+## Installation
+
+### HACS
+
+1. Ouvrir HACS → **Intégrations** → menu → **Dépôts personnalisés**.
+2. Ajouter `https://github.com/Glawnn/ha.de-ev` en catégorie **Integration**.
+3. Installer **Dé EV Charger**, puis redémarrer Home Assistant.
+4. **Paramètres → Appareils et services → Ajouter une intégration**, puis
+   chercher **Dé EV Charger**.
+
+### Manuelle
+
+```bash
+cp -r custom_components/de_ev /config/custom_components/
+```
+
+Redémarrer Home Assistant, puis ajouter l'intégration depuis l'interface. La
+version actuelle crée une entrée de configuration et prépare les phases cloud
+et locale ; elle n'expose pas encore d'entités.
+
+## Développement
+
+Les tests utilisent Home Assistant 2026.10 et nécessitent Python 3.14 :
+
+```bash
+uv venv --python 3.14
+uv pip install -e ".[dev]"
+uv run ruff check .
+uv run pytest -q
+```
+
+Alternative sans `uv` :
+
+```bash
+python3.14 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/ruff check .
+.venv/bin/pytest -q
 ```
 
 ## Environnement réutilisable

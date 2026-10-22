@@ -3,7 +3,13 @@
     "step": {
       "user": {
         "title": "Dé EV Charger",
-        "description": "Squelette de développement. La configuration Tuya et la connexion locale à la borne seront ajoutées dans les phases suivantes."
+        "description": "Créez l'entrée de la borne. La découverte cloud et la connexion locale seront ajoutées dans les prochaines phases.",
+        "data": {
+          "name": "Nom"
+        },
+        "data_description": {
+          "name": "Nom affiché dans Home Assistant."
+        }
       }
     },
     "abort": {
