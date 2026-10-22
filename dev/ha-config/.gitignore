@@ -1,0 +1,9 @@
+.storage/
+*.db
+*.db-*
+home-assistant.log
+home-assistant.log.*
+deps/
+tts/
+backups/
+.cloud/

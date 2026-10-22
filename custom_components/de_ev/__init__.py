@@ -1,0 +1,22 @@
+"""Dé EV Charger integration."""
+
+from __future__ import annotations
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+
+from .const import DOMAIN
+
+PLATFORMS: list[str] = []
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Dé EV Charger from a config entry."""
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {}
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a Dé EV Charger config entry."""
+    hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+    return True

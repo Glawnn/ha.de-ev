@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local secrets / overrides
+.env
+dev/.env
+
+# Home Assistant dev runtime
+dev/ha-config/.storage/
+dev/ha-config/*.db
+dev/ha-config/*.db-*
+dev/ha-config/home-assistant.log
+dev/ha-config/home-assistant.log.*
+dev/ha-config/deps/
+dev/ha-config/tts/
+dev/ha-config/backups/
+dev/ha-config/.cloud/
