@@ -25,6 +25,7 @@ HA_COUNTRY ?= FR
 HA_CURRENCY ?= EUR
 HA_URL ?= http://127.0.0.1:$(HA_PORT)
 HA_SANDBOX_CONFIG ?= $(CURDIR)/sandbox/config.yaml
+VENV ?= .venv
 AUTO_ONBOARD ?= 1
 
 COMPOSE_PROJECT_NAME ?= $(COMPONENT_NAME)-dev
@@ -36,7 +37,7 @@ export HA_CONTAINER_NAME HA_TIMEZONE HA_LANGUAGE HA_DEV_NAME HA_DEV_USER
 export HA_DEV_PASSWORD HA_LATITUDE HA_LONGITUDE HA_ELEVATION HA_COUNTRY
 export HA_CURRENCY HA_URL HA_SANDBOX_CONFIG COMPOSE_PROJECT_NAME
 
-.PHONY: help dev up down restart logs ps shell config reset clean onboard test lint compose-config check-component check-docker
+.PHONY: help dev up down restart logs ps shell config reset clean onboard install-dev test lint compose-config check-component check-docker
 
 help: ## Afficher cette aide
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<cible>\033[0m\n\nCibles:\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -88,11 +89,24 @@ onboard: ## Créer le compte propriétaire via l'API onboarding
 	@test -f "$(HA_SANDBOX_CONFIG)" || { cp sandbox/config.example.yaml "$(HA_SANDBOX_CONFIG)"; chmod 600 "$(HA_SANDBOX_CONFIG)"; }
 	@python3 sandbox/scripts/onboard.py
 
+install-dev: ## Créer le venv et installer les dépendances de développement
+	@if command -v uv >/dev/null 2>&1; then \
+		uv venv --python 3.14 "$(VENV)"; \
+		uv pip install --python "$(VENV)/bin/python" -e ".[dev]"; \
+	else \
+		python3 -m venv "$(VENV)"; \
+		"$(VENV)/bin/python" -m pip install --upgrade pip; \
+		"$(VENV)/bin/python" -m pip install -e ".[dev]"; \
+	fi
+
 test: ## Lancer les tests Python
-	@if find tests -name 'test_*.py' -print -quit 2>/dev/null | grep -q .; then python3 -m pytest -q; else printf "Aucun test pour le moment.\n"; fi
+	@if [ ! -x "$(VENV)/bin/python" ]; then printf "Environnement absent. Lance 'make install-dev'.\n"; exit 1; fi
+	@"$(VENV)/bin/python" -m pytest -q
 
 lint: ## Lancer ruff
-	@if command -v ruff >/dev/null 2>&1; then ruff check .; else printf "ruff n'est pas installé.\n"; fi
+	@if [ -x "$(VENV)/bin/ruff" ]; then "$(VENV)/bin/ruff" check .; \
+	elif command -v ruff >/dev/null 2>&1; then ruff check .; \
+	else printf "ruff n'est pas installé. Lance 'make install-dev'.\n"; exit 1; fi
 
 compose-config: check-docker ## Valider le fichier Docker Compose
 	@$(DOCKER_COMPOSE) -f sandbox/docker-compose.yml config

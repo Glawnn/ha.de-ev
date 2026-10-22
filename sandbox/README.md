@@ -91,6 +91,7 @@ Docker settings (port, image, etc.) remain Makefile variables.
 | `make onboard` | Run onboarding again |
 | `make reset` | Remove onboarding, the database and logs |
 | `make clean` | Remove state and runtime files |
+| `make install-dev` | Create the Python 3.14 venv and install dev dependencies |
 | `make test` | Run the Python tests |
 | `make lint` | Run ruff |
 | `make compose-config` | Validate the Compose file |
