@@ -1,122 +1,122 @@
-# Environnement de développement Home Assistant
+# Home Assistant development sandbox
 
-Le dossier `sandbox/` fournit un environnement Home Assistant jetable,
-préconfiguré et réutilisable pour développer une intégration personnalisée.
+The `sandbox/` directory provides a disposable, preconfigured and reusable
+Home Assistant environment for developing a custom integration.
 
-Le composant n'est pas copié dans l'image : il est monté en lecture seule dans
-`/config/custom_components/<domaine>`. Toute modification du code est donc
-visible après un redémarrage de Home Assistant, sans reconstruire d'image.
+The component is not baked into the image: it is mounted read-only at
+`/config/custom_components/<domain>`. Code changes therefore become visible
+after a Home Assistant restart, without rebuilding the image.
 
-## Prérequis
+## Requirements
 
-- Docker Desktop avec l'intégration WSL2 activée, ou Docker Engine sur Linux.
+- Docker Desktop with WSL2 integration enabled, or Docker Engine on Linux.
 - Docker Compose v2 (`docker compose`).
 - `make`.
-- Python 3 pour le script d'onboarding.
+- Python 3 for the onboarding script.
 
-Sur WSL2, vérifier que Docker est accessible :
+On WSL2, verify that Docker is reachable:
 
 ```bash
 docker version
 docker compose version
 ```
 
-Si `docker` n'est pas trouvé, activer l'intégration de la distribution dans
-Docker Desktop : **Settings → Resources → WSL Integration**.
+If `docker` is not found, enable the distribution in Docker Desktop:
+**Settings → Resources → WSL Integration**.
 
-## Démarrage rapide
+## Quick start
 
 ```bash
 make dev
 ```
 
-Puis ouvrir <http://127.0.0.1:8123>.
+Then open <http://127.0.0.1:8123>.
 
-`make dev` :
+`make dev`:
 
-1. démarre le conteneur Home Assistant ;
-2. attend que l'interface réponde ;
-3. tente de créer le compte propriétaire via l'API onboarding ;
-4. affiche l'URL et les identifiants si l'onboarding a réussi.
+1. starts the Home Assistant container;
+2. waits for the web interface to respond;
+3. tries to create the owner account through the onboarding API;
+4. prints the URL and credentials if onboarding succeeded.
 
-Si l'onboarding automatique échoue, ouvrir l'interface et créer le compte
-manuellement. La configuration et le composant sont déjà en place.
+If automatic onboarding fails, open the UI and create the account manually.
+The configuration and the component are already in place.
 
-## Commandes
+## Commands
 
-| Commande | Effet |
+| Command | Effect |
 |---|---|
-| `make dev` | Démarre HA + onboarding |
-| `make up` | Démarre HA sans onboarding |
-| `make down` | Arrête HA |
-| `make restart` | Redémarre le conteneur |
-| `make logs` | Suit les logs |
-| `make ps` | Affiche l'état du conteneur |
-| `make shell` | Ouvre un shell dans le conteneur |
-| `make config` | Vérifie la configuration HA |
-| `make onboard` | Relance l'onboarding |
-| `make reset` | Supprime l'onboarding, la DB et les logs |
-| `make clean` | Supprime l'état et les fichiers runtime |
-| `make test` | Lance les tests Python |
-| `make lint` | Lance ruff |
-| `make compose-config` | Valide le fichier Compose |
+| `make dev` | Start HA and run onboarding |
+| `make up` | Start HA without onboarding |
+| `make down` | Stop HA |
+| `make restart` | Restart the container |
+| `make logs` | Follow the logs |
+| `make ps` | Show the container status |
+| `make shell` | Open a shell in the container |
+| `make config` | Validate the HA configuration |
+| `make onboard` | Run onboarding again |
+| `make reset` | Remove onboarding, the database and logs |
+| `make clean` | Remove state and runtime files |
+| `make test` | Run the Python tests |
+| `make lint` | Run ruff |
+| `make compose-config` | Validate the Compose file |
 
 ## Variables
 
-Les valeurs par défaut ciblent ce dépôt. Elles sont surchargeables :
+The defaults target this repository. They can be overridden:
 
 ```bash
-make dev COMPONENT_NAME=mon_integration HA_PORT=8124
+make dev COMPONENT_NAME=my_integration HA_PORT=8124
 ```
 
-| Variable | Défaut | Rôle |
+| Variable | Default | Purpose |
 |---|---|---|
-| `COMPONENT_NAME` | `de_ev` | Nom du dossier et domaine du composant |
-| `COMPONENT_PATH` | `custom_components/<nom>` | Chemin source monté dans HA |
-| `HA_CONFIG_DIR` | `sandbox/ha-config` | Configuration persistante HA |
-| `HA_BIND` | `127.0.0.1` | Interface d'écoute |
-| `HA_PORT` | `8123` | Port local |
-| `HA_IMAGE` | `ghcr.io/home-assistant/home-assistant:stable` | Image HA |
-| `HA_CONTAINER_NAME` | `<nom>-dev` | Nom du conteneur |
-| `HA_TIMEZONE` | `Europe/Paris` | Fuseau horaire |
-| `HA_DEV_USER` | `dev` | Utilisateur propriétaire |
-| `HA_DEV_PASSWORD` | généré | Mot de passe propriétaire |
-| `AUTO_ONBOARD` | `1` | Onboarding automatique avec `make dev` |
+| `COMPONENT_NAME` | `de_ev` | Component directory and domain name |
+| `COMPONENT_PATH` | `custom_components/<name>` | Source path mounted into HA |
+| `HA_CONFIG_DIR` | `sandbox/ha-config` | Persistent HA configuration |
+| `HA_BIND` | `127.0.0.1` | Listen address |
+| `HA_PORT` | `8123` | Local port |
+| `HA_IMAGE` | `ghcr.io/home-assistant/home-assistant:stable` | HA image |
+| `HA_CONTAINER_NAME` | `<name>-dev` | Container name |
+| `HA_TIMEZONE` | `Europe/Paris` | Timezone |
+| `HA_DEV_USER` | `dev` | Owner username |
+| `HA_DEV_PASSWORD` | generated | Owner password |
+| `AUTO_ONBOARD` | `1` | Automatic onboarding with `make dev` |
 
-## Réutilisation dans un autre projet
+## Reusing it in another project
 
-1. Copier `Makefile` et le dossier `sandbox/` dans le nouveau dépôt.
-2. Adapter `COMPONENT_NAME` et, si besoin, `COMPONENT_PATH`.
-3. Vérifier que le composant contient un `manifest.json`.
-4. Lancer `make dev`.
+1. Copy `Makefile` and the `sandbox/` directory into the new repository.
+2. Set `COMPONENT_NAME` and, if needed, `COMPONENT_PATH`.
+3. Make sure the component contains a `manifest.json`.
+4. Run `make dev`.
 
-Le dossier `sandbox/ha-config/` est autonome : il contient la configuration HA
-et un `.gitignore` qui exclut les données sensibles (`.storage`, base de
-données, logs).
+The `sandbox/ha-config/` directory is self-contained: it holds the HA
+configuration and a `.gitignore` that excludes sensitive data (`.storage`,
+database, logs).
 
-Pour utiliser plusieurs environnements en parallèle, changer `HA_PORT` et
-`COMPOSE_PROJECT_NAME` :
+To run several environments side by side, change `HA_PORT` and
+`COMPOSE_PROJECT_NAME`:
 
 ```bash
-make dev COMPONENT_NAME=mon_integration HA_PORT=8124 COMPOSE_PROJECT_NAME=mon-integration-dev
+make dev COMPONENT_NAME=my_integration HA_PORT=8124 COMPOSE_PROJECT_NAME=my-integration-dev
 ```
 
-## Données et sécurité
+## Data and security
 
-- `sandbox/ha-config/.storage/` contient les utilisateurs, tokens et entrées de
-  configuration : **ne jamais le committer**.
-- Le port est bindé sur `127.0.0.1` par défaut. Pour exposer HA sur le réseau,
-  utiliser `HA_BIND=0.0.0.0` en connaissance de cause.
-- Le composant est monté en lecture seule ; `PYTHONDONTWRITEBYTECODE=1` évite
-  de créer des `__pycache__` dans le dépôt.
-- L'environnement est destiné au développement, pas à la production.
+- `sandbox/ha-config/.storage/` contains users, tokens and configuration
+  entries: **never commit it**.
+- The port is bound to `127.0.0.1` by default. To expose HA on the network,
+  use `HA_BIND=0.0.0.0` with care.
+- The component is mounted read-only; `PYTHONDONTWRITEBYTECODE=1` prevents
+  `__pycache__` directories from being created in the repository.
+- This environment is intended for development, not production.
 
 ## Notes
 
-- Home Assistant peut mettre 30 à 60 secondes à démarrer.
-- Le premier démarrage peut télécharger l'image Docker.
-- Pour tester un appareil Tuya local, le conteneur doit pouvoir joindre le
-  réseau local. Le mode bridge Docker suffit pour les connexions sortantes ;
-  la découverte mDNS/UDP peut nécessiter un mode réseau spécifique.
-- Pour ajouter un accès USB (Zigbee, Z-Wave, Bluetooth), ajouter les devices et
-  les capabilities nécessaires dans `docker-compose.yml`.
+- Home Assistant can take 30 to 60 seconds to start.
+- The first start may download the Docker image.
+- To test a local Tuya device, the container must be able to reach the local
+  network. Docker bridge mode is enough for outbound connections; mDNS/UDP
+  discovery may require a specific network mode.
+- To add USB access (Zigbee, Z-Wave, Bluetooth), add the required devices and
+  capabilities to `docker-compose.yml`.
