@@ -1,4 +1,5 @@
 const CARD_TYPE = "de-ev-charger";
+const EDITOR_TYPE = "de-ev-charger-editor";
 
 const DEFAULT_METRICS = ["power", "energy_session", "session_duration", "current"];
 const DEFAULT_CONTROLS = ["start_stop", "current"];
@@ -84,6 +85,48 @@ const STATUS_LABELS = {
     fault: "Défaut",
     paused: "En pause",
     charged: "Charge terminée",
+  },
+};
+
+const METRIC_ORDER = [
+  "status",
+  "power",
+  "voltage",
+  "current",
+  "temperature",
+  "energy_session",
+  "session_duration",
+  "max_current",
+  "work_state",
+  "last_session_energy",
+];
+
+const EDITOR_LABELS = {
+  en: {
+    device_id: "Charger device",
+    entity: "Reference entity",
+    title: "Title",
+    subtitle: "Subtitle",
+    icon: "Icon",
+    metrics: "Displayed information",
+    controls: "Controls",
+    compact: "Compact layout",
+    start_stop: "Start / stop button",
+    current: "Charging current slider",
+    hint: "Advanced options (per-metric labels, icons and explicit entity mapping) remain available in YAML.",
+  },
+  fr: {
+    device_id: "Appareil de la borne",
+    entity: "Entité de référence",
+    title: "Titre",
+    subtitle: "Sous-titre",
+    icon: "Icône",
+    metrics: "Informations affichées",
+    controls: "Commandes",
+    compact: "Affichage compact",
+    start_stop: "Bouton démarrer / arrêter",
+    current: "Curseur du courant de charge",
+    hint: "Les options avancées (libellés, icônes par information et mapping explicite des entités) restent disponibles en YAML.",
   },
 };
 
@@ -304,6 +347,10 @@ class DeEvChargerCard extends HTMLElement {
           candidate.startsWith("sensor.") && candidate.endsWith("_status")
       ) || candidates.find((candidate) => candidate.startsWith("sensor."));
     return entity ? { entity } : {};
+  }
+
+  static getConfigElement() {
+    return document.createElement(EDITOR_TYPE);
   }
 
   setConfig(config) {
@@ -781,6 +828,187 @@ class DeEvChargerCard extends HTMLElement {
     this._errorEl.textContent = message || "";
     this._errorEl.hidden = !message;
   }
+}
+
+class DeEvChargerEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._config = null;
+    this._hass = null;
+    this._form = null;
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: block;
+        }
+        ha-form {
+          display: block;
+        }
+        .hint {
+          margin: 12px 0 0;
+          color: var(--secondary-text-color);
+          font-size: 0.8rem;
+          line-height: 1.4;
+        }
+      </style>
+      <ha-form></ha-form>
+      <p class="hint"></p>
+    `;
+    this._form = this.shadowRoot.querySelector("ha-form");
+    this._form.schema = [];
+    this._form.data = {};
+    this._form.addEventListener("value-changed", (event) =>
+      this._valueChanged(event)
+    );
+    this._form.computeLabel = (schema) => this._label(schema.name);
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._sync();
+  }
+
+  setConfig(config) {
+    if (JSON.stringify(config) === JSON.stringify(this._config)) {
+      return;
+    }
+    this._config = config || {};
+    this._sync();
+  }
+
+  _sync() {
+    if (!this._config || !this._hass) {
+      return;
+    }
+    this._form.hass = this._hass;
+    this._form.schema = this._schema();
+    this._form.data = this._data();
+    this.shadowRoot.querySelector(".hint").textContent = this._t("hint");
+  }
+
+  _language() {
+    const language = (this._hass?.language || "en").toLowerCase();
+    return language.startsWith("fr") ? "fr" : "en";
+  }
+
+  _t(key) {
+    const language = this._language();
+    return EDITOR_LABELS[language][key] || EDITOR_LABELS.en[key] || key;
+  }
+
+  _label(name) {
+    return this._t(name);
+  }
+
+  _schema() {
+    return [
+      {
+        name: "device_id",
+        selector: { device: { integration: "de_ev" } },
+      },
+      {
+        name: "entity",
+        selector: { entity: { integration: "de_ev", domain: "sensor" } },
+      },
+      { name: "title", selector: { text: {} } },
+      { name: "subtitle", selector: { text: {} } },
+      { name: "icon", selector: { icon: {} } },
+      {
+        name: "metrics",
+        selector: {
+          select: {
+            multiple: true,
+            options: METRIC_ORDER.map((key) => ({
+              value: key,
+              label: this._metricLabel(key),
+            })),
+          },
+        },
+      },
+      {
+        name: "controls",
+        selector: {
+          select: {
+            multiple: true,
+            options: DEFAULT_CONTROLS.map((key) => ({
+              value: key,
+              label: this._t(key),
+            })),
+          },
+        },
+      },
+      { name: "compact", selector: { boolean: {} } },
+    ];
+  }
+
+  _metricLabel(key) {
+    const language = this._language();
+    return LABELS[language][key] || LABELS.en[key] || key;
+  }
+
+  _data() {
+    const config = this._config;
+    return {
+      device_id: config.device_id || "",
+      entity: config.entity || "",
+      title: config.title || "",
+      subtitle: config.subtitle || "",
+      icon: config.icon || "",
+      metrics: this._metricKeys(config.metrics),
+      controls: Array.isArray(config.controls)
+        ? [...config.controls]
+        : [...DEFAULT_CONTROLS],
+      compact: config.compact === true,
+    };
+  }
+
+  _metricKeys(metrics) {
+    return (metrics || DEFAULT_METRICS)
+      .map((metric) => (typeof metric === "string" ? metric : metric.key))
+      .filter((key) => key && METRICS[key]);
+  }
+
+  _metricValue(key) {
+    const metrics = this._config.metrics || [];
+    return (
+      metrics.find((metric) =>
+        typeof metric === "string" ? metric === key : metric.key === key
+      ) || key
+    );
+  }
+
+  _valueChanged(event) {
+    const value = event.detail?.value;
+    if (!value) {
+      return;
+    }
+    const config = { ...this._config };
+    for (const key of ["device_id", "entity", "title", "subtitle", "icon"]) {
+      if (value[key]) {
+        config[key] = value[key];
+      } else {
+        delete config[key];
+      }
+    }
+    config.metrics = (value.metrics || []).map((key) =>
+      this._metricValue(key)
+    );
+    config.controls = [...(value.controls || [])];
+    config.compact = value.compact === true;
+    this._config = config;
+    this.dispatchEvent(
+      new CustomEvent("config-changed", {
+        detail: { config },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+}
+
+if (!customElements.get(EDITOR_TYPE)) {
+  customElements.define(EDITOR_TYPE, DeEvChargerEditor);
 }
 
 if (!customElements.get(CARD_TYPE)) {

@@ -92,6 +92,11 @@ et les instructions de réutilisation.
 L'intégration fournit la carte `custom:de-ev-charger`. Aucune ressource
 frontend à installer séparément : elle est servie par l'intégration.
 
+La carte dispose d'un éditeur visuel pour choisir l'appareil, le titre,
+l'icône, les informations affichées et les commandes. Les options avancées
+(libellés, icônes par information et mapping explicite des entités) restent
+disponibles en YAML.
+
 Exemple minimal, à partir d'une entité de la borne (l'IP et les autres entités
 sont retrouvées automatiquement via l'appareil) :
 
