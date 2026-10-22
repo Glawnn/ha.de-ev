@@ -3,10 +3,9 @@
 Intégration Home Assistant pour une borne de recharge VE pilotée localement via
 Tuya, avec découverte cloud pour le bootstrap.
 
-> État actuel : **phase 0.1 — bootstrap de l'intégration**. Le composant
-> `custom_components/de_ev` s'installe et affiche son config flow, mais ne
-> crée pas encore d'entités. La configuration Tuya et le contrôle local seront
-> ajoutés dans les phases suivantes.
+> État actuel : **phase 0.2 — connexion cloud + locale**. Le config flow
+> découvre la borne via Tuya Cloud ou accepte une configuration locale, puis
+> expose les mesures et les commandes de charge dans Home Assistant.
 
 ## Démarrage rapide
 
@@ -38,6 +37,9 @@ make reset    # repartir d'un HA vierge
 3. Installer **Dé EV Charger**, puis redémarrer Home Assistant.
 4. **Paramètres → Appareils et services → Ajouter une intégration**, puis
    chercher **Dé EV Charger**.
+5. Choisir **Cloud** (Access ID / Access Secret du projet Tuya) ou **Local**
+   (IP, Device ID, Local Key). Le protocole est détecté automatiquement
+   (3.5 → 3.4 → 3.3).
 
 ### Manuelle
 
@@ -45,9 +47,9 @@ make reset    # repartir d'un HA vierge
 cp -r custom_components/de_ev /config/custom_components/
 ```
 
-Redémarrer Home Assistant, puis ajouter l'intégration depuis l'interface. La
-version actuelle crée une entrée de configuration et prépare les phases cloud
-et locale ; elle n'expose pas encore d'entités.
+Redémarrer Home Assistant, puis ajouter l'intégration depuis l'interface.
+La borne n'accepte qu'un seul client TCP local à la fois : fermer l'application
+Smart Life / Tuya pendant l'utilisation de l'intégration.
 
 ## Développement
 
