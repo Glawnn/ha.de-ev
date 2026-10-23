@@ -46,3 +46,4 @@ jobs:
         with:
           category: integration
           comment: false
+          ignore: ${{ github.event_name == 'pull_request' && 'license' || '' }}

@@ -1,9 +1,6 @@
 {
   "domain": "de_ev",
   "name": "Dé EV Charger",
-  "categories": [
-    "energy.ev_charging"
-  ],
   "codeowners": [
     "@Glawnn"
   ],
