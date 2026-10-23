@@ -587,6 +587,10 @@ class DeEvChargerCard extends HTMLElement {
     return entity ? { entity } : {};
   }
 
+  static getConfigElement() {
+    return document.createElement("de-ev-charger-card-editor");
+  }
+
   setConfig(config) {
     if (!config || typeof config !== "object") {
       throw new Error("Invalid configuration");
