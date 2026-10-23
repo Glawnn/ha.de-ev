@@ -175,6 +175,61 @@ following entities are created:
 | Vehicle plugged | A vehicle is connected |
 | Fault | The charger reports a fault |
 
+## Dashboard card
+
+The integration bundles a Lovelace card showing the charger status,
+instantaneous power, session energy and duration, the current setpoint, and
+start/stop controls. After restarting Home Assistant, add it with:
+
+```yaml
+type: custom:de-ev-charger
+device_id: <charger-device-id>
+title: Garage
+```
+
+Alternatively, point to any entity belonging to the charger:
+
+```yaml
+type: custom:de-ev-charger
+entity: sensor.garage_status
+```
+
+The card finds the other charger entities automatically. Tapping the current
+value opens the current adjustment dialog. The `popup` option selects its style:
+
+| Value | Description |
+|---|---|
+| `centered` | Centered dialog with slider and presets (default) |
+| `stepper` | Centered dialog with `-` / `+` buttons |
+| `native` | Home Assistant's standard more-info dialog |
+
+```yaml
+type: custom:de-ev-charger
+entity: sensor.garage_status
+popup: centered
+```
+
+Set `current_control: slider` to place the current slider directly in the card
+instead of opening a dialog. The slider range follows the charger's `min`, `max`
+and `step` attributes.
+
+For a virtual or test setup, point the controls to input helpers:
+
+```yaml
+type: custom:de-ev-charger
+title: Test charger
+entities:
+  status: sensor.demo_charger_status
+  power: sensor.demo_charger_power
+  energy_session: sensor.demo_charger_energy_session
+  session_duration: sensor.demo_charger_session_duration
+  charge_current: input_number.demo_charger_current
+  charge_session: input_boolean.demo_charger_session
+```
+
+The card uses the Home Assistant language for its labels (French and English are
+bundled). A visual editor is not included yet.
+
 ## Energy dashboard
 
 The **Session energy** sensor uses the Home Assistant `energy` device class with

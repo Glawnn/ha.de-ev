@@ -33,5 +33,8 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Check frontend syntax
+        run: node --check custom_components/de_ev/frontend/de-ev-charger-card.js
+
       - name: Test
         run: pytest -q

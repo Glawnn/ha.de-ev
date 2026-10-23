@@ -16,3 +16,49 @@ logger:
   logs:
     custom_components.de_ev: debug
     tinytuya: debug
+
+
+template:
+  - sensor:
+      - name: Demo Charger Status
+        unique_id: demo_charger_status
+        state: "charging"
+        icon: mdi:ev-station
+      - name: Demo Charger Power
+        unique_id: demo_charger_power
+        state: "2340"
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+      - name: Demo Charger Session Duration
+        unique_id: demo_charger_session_duration
+        state: "3725"
+        unit_of_measurement: "s"
+        device_class: duration
+        state_class: measurement
+      - name: Demo Charger Energy Session
+        unique_id: demo_charger_energy_session
+        state: "4.82"
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+  - binary_sensor:
+      - name: Demo Charger Charging
+        unique_id: demo_charger_charging
+        state: "on"
+
+input_number:
+  demo_charger_current:
+    name: Courant borne démo
+    min: 6
+    max: 32
+    step: 1
+    initial: 16
+    unit_of_measurement: "A"
+    icon: mdi:current-ac
+
+input_boolean:
+  demo_charger_session:
+    name: Session borne démo
+    initial: true
+    icon: mdi:ev-station

@@ -17,6 +17,7 @@ sandbox/.env
 sandbox/config.yaml
 
 # Home Assistant sandbox runtime
+sandbox/ha-config/custom_components/
 sandbox/ha-config/.storage/
 sandbox/ha-config/.cache/
 sandbox/ha-config/.HA_VERSION

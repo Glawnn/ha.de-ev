@@ -5,6 +5,9 @@
     "@Glawnn"
   ],
   "config_flow": true,
+  "dependencies": [
+    "http"
+  ],
   "documentation": "https://github.com/Glawnn/ha.de-ev",
   "integration_type": "device",
   "iot_class": "local_polling",
