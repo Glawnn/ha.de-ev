@@ -194,8 +194,10 @@ type: custom:de-ev-charger
 entity: sensor.garage_status
 ```
 
-The card finds the other charger entities automatically. Tapping the current
-value opens the current adjustment dialog. The `popup` option selects its style:
+The card finds the other charger entities automatically from the device
+registry, and explicit `entities:` overrides are optional for custom or test
+setups. Tapping the current value opens the current adjustment dialog. The
+`popup` option selects its style:
 
 | Value | Description |
 |---|---|
@@ -228,7 +230,8 @@ entities:
 ```
 
 The card uses the Home Assistant language for its labels (French and English are
-bundled). A visual editor is not included yet.
+bundled). The card also includes a visual editor in the Lovelace UI for the
+basic configuration fields.
 
 ## Energy dashboard
 
