@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "python",
+  "package-name": "ha-de-ev",
+  "include-component-in-tag": false,
+  "bump-minor-pre-major": true,
+  "bootstrap-sha": "3608d38c86b0c7e5e73ad835a8f254ff6638f483",
+  "packages": {
+    ".": {
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "custom_components/de_ev/manifest.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    }
+  }
+}
