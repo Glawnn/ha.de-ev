@@ -142,7 +142,7 @@ git checkout main
 git pull
 git tag -a v0.2.0 -m "v0.2.0"
 git push origin v0.2.0
-gh release create v0.2.0 --title "v0.2.0" --notes-file CHANGELOG_NOTES
+gh release create v0.2.0 --title "v0.2.0" --notes "Initial public release. See CHANGELOG.md for details."
 ```
 
 After that, release-please handles every subsequent release.
