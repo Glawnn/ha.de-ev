@@ -11,8 +11,10 @@ from homeassistant.setup import async_setup_component
 from custom_components.de_ev.const import DOMAIN
 from custom_components.de_ev.frontend_resources import (
     CARD_FILENAME,
+    DATA_EDITOR_REGISTERED,
     DATA_MODULE_REGISTERED,
     DATA_STATIC_PATH_REGISTERED,
+    EDITOR_FILENAME,
     FRONTEND_DIR,
     async_register_frontend,
 )
@@ -30,8 +32,8 @@ async def test_static_path_is_registered_once(hass: HomeAssistant) -> None:
     assert DATA_MODULE_REGISTERED not in hass.data
 
 
-async def test_module_is_registered_once(hass: HomeAssistant) -> None:
-    """The card module is injected once when the frontend is available."""
+async def test_module_and_editor_are_registered_once(hass: HomeAssistant) -> None:
+    """The card module and editor are injected once."""
     assert await async_setup_component(hass, "http", {})
     hass.data[DATA_EXTRA_MODULE_URL] = object()
 
@@ -41,10 +43,13 @@ async def test_module_is_registered_once(hass: HomeAssistant) -> None:
         await async_register_frontend(hass)
         await async_register_frontend(hass)
 
-    add_extra_js_url.assert_called_once()
-    url = add_extra_js_url.call_args.args[1]
-    assert url.startswith(f"/{DOMAIN}/frontend/{CARD_FILENAME}?v=")
+    assert add_extra_js_url.call_count == 2
+    card_url = add_extra_js_url.call_args_list[0].args[1]
+    editor_url = add_extra_js_url.call_args_list[1].args[1]
+    assert card_url.startswith(f"/{DOMAIN}/frontend/{CARD_FILENAME}?v=")
+    assert editor_url.startswith(f"/{DOMAIN}/frontend/{EDITOR_FILENAME}?v=")
     assert hass.data[DATA_MODULE_REGISTERED] is True
+    assert hass.data[DATA_EDITOR_REGISTERED] is True
 
 
 async def test_missing_card_file_is_skipped(hass: HomeAssistant, tmp_path) -> None:
@@ -62,6 +67,7 @@ async def test_missing_card_file_is_skipped(hass: HomeAssistant, tmp_path) -> No
 
     add_extra_js_url.assert_not_called()
     assert DATA_MODULE_REGISTERED not in hass.data
+    assert DATA_EDITOR_REGISTERED not in hass.data
 
 
 async def test_setup_registers_frontend(hass: HomeAssistant) -> None:

@@ -666,7 +666,10 @@ class DeEvChargerCard extends HTMLElement {
   }
 
   _resolveEntities() {
-    const resolved = { ...this._config.entities };
+    const resolved = { ...(this._config?.entities || {}) };
+    if (!this._hass || !this._config) {
+      return resolved;
+    }
     if (this._config.entity && !resolved.status) {
       resolved.status = this._config.entity;
     }
@@ -729,11 +732,14 @@ class DeEvChargerCard extends HTMLElement {
   }
 
   _stateFor(key) {
-    const entityId = this._entities[key];
-    return entityId ? this._hass.states[entityId] : undefined;
+    const entityId = this._entities?.[key];
+    return entityId && this._hass?.states ? this._hass.states[entityId] : undefined;
   }
 
   _deviceName() {
+    if (!this._hass) {
+      return null;
+    }
     const deviceId = this._resolveDeviceId();
     const device = deviceId ? this._hass.devices?.[deviceId] : undefined;
     return device?.name_by_user || device?.name || null;
@@ -855,6 +861,9 @@ class DeEvChargerCard extends HTMLElement {
   }
 
   _render() {
+    if (!this._config) {
+      return;
+    }
     this._entities = this._resolveEntities();
     const controls =
       this._config.current_control === "slider"
@@ -959,7 +968,9 @@ class DeEvChargerCard extends HTMLElement {
         }
       });
     }
-    this._sessionButton.addEventListener("click", () => this._toggleSession());
+    if (this._sessionButton) {
+      this._sessionButton.addEventListener("click", () => this._toggleSession());
+    }
     this._built = true;
     this._update();
   }
@@ -1072,8 +1083,8 @@ class DeEvChargerCard extends HTMLElement {
   }
 
   async _setCurrentValue(value) {
-    const entityId = this._entities.charge_current;
-    if (!entityId) {
+    const entityId = this._entities?.charge_current;
+    if (!entityId || !this._hass) {
       return;
     }
     const current = Number(this._stateFor("charge_current")?.state);
@@ -1090,18 +1101,21 @@ class DeEvChargerCard extends HTMLElement {
     } catch (err) {
       this._inlineEditing = false;
       this._update();
-      this._inlineRangeEl.title = err?.message || String(err);
+      if (this._inlineRangeEl) {
+        this._inlineRangeEl.title = err?.message || String(err);
+      }
     }
   }
 
   _openPopup() {
-    if (!this._canControlCurrent()) {
+    const entityId = this._entities?.charge_current;
+    if (!entityId || !this._canControlCurrent()) {
       return;
     }
     if (this._config.popup === "native") {
       this.dispatchEvent(
         new CustomEvent("hass-more-info", {
-          detail: { entityId: this._entities.charge_current },
+          detail: { entityId },
           bubbles: true,
           composed: true,
         }),
@@ -1109,6 +1123,9 @@ class DeEvChargerCard extends HTMLElement {
       return;
     }
     const state = this._stateFor("charge_current");
+    if (!state) {
+      return;
+    }
     this._range = this._currentRange(state);
     const current = Number(state.state);
     this._draftCurrent = this._clamp(
@@ -1118,11 +1135,11 @@ class DeEvChargerCard extends HTMLElement {
     );
     this._dirty = false;
     this._renderPopup();
-    if (!this._dialog.open) {
-      this._dialog.showModal();
+    if (!this._dialog?.open) {
+      this._dialog?.showModal();
     }
     this._syncPopupValue();
-    this._dialog.querySelector(".range")?.focus();
+    this._dialog?.querySelector(".range")?.focus();
   }
 
   _renderPopup() {
@@ -1253,12 +1270,15 @@ class DeEvChargerCard extends HTMLElement {
   }
 
   async _applyCurrent() {
-    const entityId = this._entities.charge_current;
-    if (!entityId || this._draftCurrent === null) {
+    const entityId = this._entities?.charge_current;
+    if (!entityId || this._draftCurrent === null || !this._dialog || !this._hass) {
       return;
     }
     const apply = this._dialog.querySelector("[data-action='apply']");
     const errorEl = this._dialog.querySelector(".popup-error");
+    if (!apply || !errorEl) {
+      return;
+    }
     apply.disabled = true;
     errorEl.hidden = true;
     const domain = entityId.split(".")[0];
