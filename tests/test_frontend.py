@@ -20,6 +20,17 @@ from custom_components.de_ev.frontend_resources import (
 )
 
 
+async def test_registration_is_skipped_without_http(hass: HomeAssistant) -> None:
+    """Frontend registration does nothing when the HTTP stack is unavailable."""
+    hass.data[DATA_EXTRA_MODULE_URL] = object()
+
+    await async_register_frontend(hass)
+
+    assert DATA_STATIC_PATH_REGISTERED not in hass.data
+    assert DATA_MODULE_REGISTERED not in hass.data
+    assert DATA_EDITOR_REGISTERED not in hass.data
+
+
 async def test_static_path_is_registered_once(hass: HomeAssistant) -> None:
     """The card directory is served once."""
     assert await async_setup_component(hass, "http", {})
