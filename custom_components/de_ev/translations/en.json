@@ -49,14 +49,14 @@
       },
       "reauth_confirm": {
         "title": "Update the local key",
-        "description": "The charger rejected the stored local key. Enter the new key.",
+        "description": "The charger rejected the stored local key. The integration first tries to read the current key from Tuya Cloud. If it cannot, enter the new key.",
         "data": {
           "local_key": "Local key"
         }
       },
       "reconfigure": {
         "title": "Update the charger connection",
-        "description": "Change the IP address, local key or protocol version.",
+        "description": "Change the IP address, local key or protocol version. The current key is read from Tuya Cloud when available.",
         "data": {
           "host": "IP address",
           "local_key": "Local key",
@@ -81,6 +81,8 @@
       "cloud_error": "Unexpected error from Tuya Cloud. Retry; if it persists, check the Home Assistant logs.",
       "missing_config": "IP address, Device ID and local key are required.",
       "invalid_auth": "The charger rejected the local key. Copy the current key from Tuya IoT Platform or Smart Life and retry.",
+      "cloud_key_invalid": "Tuya Cloud returned a local key that the charger rejected. Check that the device is linked to the right Smart Life account, or enter the new key manually.",
+      "cloud_key_unchanged": "Tuya Cloud returned the same local key as the one already stored. Update the key in the Smart Life app or Tuya IoT project, or enter the new key manually.",
       "cannot_connect": "Cannot reach the charger on {host}:6668. Check the IP, that the charger is powered on and on the same network as Home Assistant.",
       "port_busy": "Port 6668 is already used by another client. Close Smart Life or the Tuya app on your phone, then retry.",
       "unsupported_device": "The charger answered, but its Tuya profile is not supported yet. Open an issue with the model and data points.",

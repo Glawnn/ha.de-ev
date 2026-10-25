@@ -38,8 +38,8 @@ is unavailable after setup, local control keeps working.
 - Binary sensors: charging, vehicle plugged and fault.
 - Config flow with cloud discovery or fully local configuration.
 - Automatic Tuya protocol detection (`3.5`, then `3.4` and `3.3`).
-- Reauthentication when the local key changes and reconfiguration of the IP
-  address.
+- Reauthentication that reads the current local key from Tuya Cloud before
+  asking for it, and reconfiguration of the IP address.
 - Diagnostics support with secrets redacted.
 
 ## Supported hardware
@@ -96,8 +96,10 @@ automatically when the integration is loaded.
 
 ### Option 1 — Tuya Cloud (recommended)
 
-The cloud is used once to list your chargers and retrieve their local keys. The
-integration then switches to local communication.
+The cloud is used to list your chargers and retrieve their local keys. It is
+queried again during reauthentication, so a key changed after re-pairing is
+applied automatically when possible. The integration then switches to local
+communication.
 
 1. Create an account on [Tuya IoT Platform](https://iot.tuya.com/).
 2. Create a **Cloud project** and note its **Access ID / Client ID** and
@@ -128,7 +130,9 @@ Choose **Local connection** and provide:
 | Area | Optional Home Assistant area |
 
 The local key changes when the charger is re-paired with the mobile app. If the
-key is rejected later, Home Assistant starts a reauthentication flow.
+key is rejected later, Home Assistant starts a reauthentication flow, which
+reads the current key from Tuya Cloud first and only asks you to enter it if the
+lookup fails.
 
 ### Options
 

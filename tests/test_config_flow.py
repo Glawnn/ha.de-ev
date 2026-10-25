@@ -12,7 +12,7 @@ from homeassistant.data_entry_flow import EVENT_DATA_ENTRY_FLOW_PROGRESSED
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.de_ev import config_flow
-from custom_components.de_ev.charger import ChargerClient
+from custom_components.de_ev.charger import ChargerAuthError, ChargerClient
 from custom_components.de_ev.cloud import CloudAuthError
 from custom_components.de_ev.const import (
     CONF_ACCESS_ID,
@@ -401,3 +401,203 @@ async def test_cloud_progress_notifies_the_frontend(
         event.data["flow_id"] == flow_id and event.data.get("refresh")
         for event in events
     )
+
+
+def _cloud_entry() -> MockConfigEntry:
+    """Build a cloud-backed entry with the local connection details."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="device-1",
+        data={
+            CONF_REGION: "eu",
+            CONF_ACCESS_ID: "access-id",
+            CONF_ACCESS_SECRET: "access-secret",
+            CONF_DEVICE_ID: "device-1",
+            CONF_HOST: "192.168.1.50",
+            CONF_LOCAL_KEY: "0123456789abcdef",
+            CONF_PROTOCOL: DEFAULT_PROTOCOL,
+        },
+    )
+
+
+async def _start_reauth(
+    hass: HomeAssistant, entry: MockConfigEntry
+) -> dict[str, Any]:
+    return await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_REAUTH,
+            "entry_id": entry.entry_id,
+        },
+        data=entry.data,
+    )
+
+
+async def _start_reconfigure(
+    hass: HomeAssistant, entry: MockConfigEntry
+) -> dict[str, Any]:
+    return await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+        },
+    )
+
+
+async def test_reauth_uses_the_cloud_key(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reauthentication succeeds without asking when the cloud has the new key."""
+    entry = _cloud_entry()
+    entry.add_to_hass(hass)
+    cloud_key = "fedcba9876543210"
+    monkeypatch.setattr(
+        config_flow,
+        "get_device",
+        lambda *args: {**DEVICE, "local_key": cloud_key},
+    )
+
+    async def _validate(*args: Any, **kwargs: Any) -> tuple[str, Any]:
+        assert args[3] == cloud_key
+        return DEFAULT_PROTOCOL, decode(DPS)
+
+    monkeypatch.setattr(config_flow, "_validate_connection", _validate)
+
+    result = await _start_reauth(hass, entry)
+
+    assert result["type"] is data_entry_flow.FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data[CONF_LOCAL_KEY] == cloud_key
+
+
+async def test_reauth_falls_back_to_the_manual_key(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reauthentication shows the form when Tuya Cloud has no key."""
+    entry = _cloud_entry()
+    entry.add_to_hass(hass)
+    monkeypatch.setattr(config_flow, "get_device", lambda *args: {})
+
+    result = await _start_reauth(hass, entry)
+    assert result["type"] is data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+
+    new_key = "fedcba9876543210"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_LOCAL_KEY: new_key}
+    )
+
+    assert result["type"] is data_entry_flow.FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data[CONF_LOCAL_KEY] == new_key
+
+
+async def test_reauth_reports_a_rejected_cloud_key(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A key returned by the cloud that the charger rejects is explained."""
+    entry = _cloud_entry()
+    entry.add_to_hass(hass)
+    cloud_key = "badkey0000000000"
+    monkeypatch.setattr(
+        config_flow,
+        "get_device",
+        lambda *args: {**DEVICE, "local_key": cloud_key},
+    )
+
+    async def _validate(
+        hass_: HomeAssistant,
+        host: str,
+        device_id: str,
+        local_key: str,
+        protocol: str,
+    ) -> tuple[str, Any]:
+        if local_key == cloud_key:
+            raise ChargerAuthError("rejected")
+        return DEFAULT_PROTOCOL, decode(DPS)
+
+    monkeypatch.setattr(config_flow, "_validate_connection", _validate)
+
+    result = await _start_reauth(hass, entry)
+    assert result["type"] is data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"]["base"] == "cloud_key_invalid"
+
+    new_key = "fedcba9876543210"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_LOCAL_KEY: new_key}
+    )
+
+    assert result["type"] is data_entry_flow.FlowResultType.ABORT
+    assert entry.data[CONF_LOCAL_KEY] == new_key
+
+
+async def test_reauth_reports_an_unchanged_cloud_key(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A cloud key identical to the stored key does not loop silently."""
+    entry = _cloud_entry()
+    entry.add_to_hass(hass)
+    monkeypatch.setattr(
+        config_flow,
+        "get_device",
+        lambda *args: {**DEVICE, "local_key": entry.data[CONF_LOCAL_KEY]},
+    )
+
+    result = await _start_reauth(hass, entry)
+    assert result["type"] is data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"]["base"] == "cloud_key_unchanged"
+
+    new_key = "fedcba9876543210"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_LOCAL_KEY: new_key}
+    )
+
+    assert result["type"] is data_entry_flow.FlowResultType.ABORT
+    assert entry.data[CONF_LOCAL_KEY] == new_key
+
+
+async def test_reconfigure_prefills_the_cloud_key(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reconfiguration starts with the key currently stored in Tuya Cloud."""
+    entry = _cloud_entry()
+    entry.add_to_hass(hass)
+    cloud_key = "fedcba9876543210"
+    monkeypatch.setattr(
+        config_flow,
+        "get_device",
+        lambda *args: {**DEVICE, "local_key": cloud_key},
+    )
+
+    result = await _start_reconfigure(hass, entry)
+    assert result["type"] is data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    schema = result["data_schema"].schema
+    key_marker = next(
+        key
+        for key in schema
+        if getattr(key, "schema", key) == CONF_LOCAL_KEY
+    )
+    assert key_marker.default() == cloud_key
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_HOST: "192.168.1.50",
+            CONF_LOCAL_KEY: cloud_key,
+            CONF_PROTOCOL: "auto",
+        },
+    )
+
+    assert result["type"] is data_entry_flow.FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_LOCAL_KEY] == cloud_key
