@@ -64,6 +64,7 @@ from .profiles import Snapshot, decode
 
 LOGGER = logging.getLogger(__name__)
 LOCAL_VALIDATION_TIMEOUT = 45
+CLOUD_LOOKUP_TIMEOUT = 15
 
 REGION_LABELS = {
     "eu": "Europe",
@@ -104,6 +105,38 @@ def _region_selector() -> SelectSelector:
 
 def _secret_selector() -> TextSelector:
     return TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
+
+
+async def _async_cloud_local_key(
+    hass: HomeAssistant, data: dict[str, Any]
+) -> str:
+    """Return the current local key from Tuya Cloud, if it is available."""
+    region = str(data.get(CONF_REGION) or "")
+    access_id = str(data.get(CONF_ACCESS_ID) or "")
+    access_secret = str(data.get(CONF_ACCESS_SECRET) or "")
+    device_id = str(data.get(CONF_DEVICE_ID) or "")
+    if not all((region, access_id, access_secret, device_id)):
+        return ""
+
+    try:
+        details = await asyncio.wait_for(
+            hass.async_add_executor_job(
+                get_device,
+                region,
+                access_id,
+                access_secret,
+                device_id,
+            ),
+            timeout=CLOUD_LOOKUP_TIMEOUT,
+        )
+    except TimeoutError:
+        LOGGER.warning("Tuya Cloud local key lookup timed out for %s", device_id)
+        return ""
+    except Exception:  # noqa: BLE001 - cloud lookup is best effort
+        LOGGER.exception("Unexpected error while reading the Tuya local key")
+        return ""
+
+    return str(details.get(CONF_LOCAL_KEY) or "").strip()
 
 
 async def _validate_connection(
@@ -728,17 +761,47 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Ask for a new local key and validate it."""
+        """Retrieve the current key from Tuya Cloud, or ask for it."""
         entry = self._get_reauth_entry()
         errors: dict[str, str] = {}
+        local_key_default = ""
 
-        if user_input is not None:
+        if user_input is None:
+            cloud_key = await _async_cloud_local_key(self.hass, entry.data)
+            current_key = str(entry.data.get(CONF_LOCAL_KEY, "")).strip()
+            if cloud_key and cloud_key == current_key:
+                errors["base"] = "cloud_key_unchanged"
+                local_key_default = cloud_key
+            elif cloud_key:
+                try:
+                    await _validate_connection(
+                        self.hass,
+                        str(entry.data.get(CONF_HOST, "")),
+                        str(entry.data.get(CONF_DEVICE_ID, "")),
+                        cloud_key,
+                        str(entry.data.get(CONF_PROTOCOL, DEFAULT_PROTOCOL)),
+                    )
+                except ChargerBusy:
+                    errors["base"] = "port_busy"
+                    local_key_default = cloud_key
+                except ChargerUnreachable:
+                    errors["base"] = "cannot_connect"
+                    local_key_default = cloud_key
+                except (ChargerAuthError, ChargerError):
+                    errors["base"] = "cloud_key_invalid"
+                else:
+                    return self.async_update_reload_and_abort(
+                        entry,
+                        data={**entry.data, CONF_LOCAL_KEY: cloud_key},
+                    )
+        else:
             local_key = str(user_input[CONF_LOCAL_KEY]).strip()
+            local_key_default = local_key
             try:
                 await _validate_connection(
                     self.hass,
-                    str(entry.data[CONF_HOST]),
-                    str(entry.data[CONF_DEVICE_ID]),
+                    str(entry.data.get(CONF_HOST, "")),
+                    str(entry.data.get(CONF_DEVICE_ID, "")),
                     local_key,
                     str(entry.data.get(CONF_PROTOCOL, DEFAULT_PROTOCOL)),
                 )
@@ -754,13 +817,16 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={**entry.data, CONF_LOCAL_KEY: local_key},
                 )
 
+        key_field = vol.Required(CONF_LOCAL_KEY)
+        if local_key_default:
+            key_field = vol.Required(
+                CONF_LOCAL_KEY,
+                default=local_key_default,
+            )
+
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_LOCAL_KEY): _secret_selector(),
-                }
-            ),
+            data_schema=vol.Schema({key_field: _secret_selector()}),
             errors=errors,
         )
 
@@ -770,10 +836,16 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Update the local connection settings."""
         entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
+        local_key_default = str(entry.data.get(CONF_LOCAL_KEY, ""))
 
-        if user_input is not None:
+        if user_input is None:
+            cloud_key = await _async_cloud_local_key(self.hass, entry.data)
+            if cloud_key:
+                local_key_default = cloud_key
+        else:
             host = str(user_input[CONF_HOST]).strip()
             local_key = str(user_input[CONF_LOCAL_KEY]).strip()
+            local_key_default = local_key
             protocol = str(user_input[CONF_PROTOCOL])
             try:
                 version, snapshot = await _validate_connection(
@@ -815,7 +887,7 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ): TextSelector(),
                     vol.Required(
                         CONF_LOCAL_KEY,
-                        default=str(entry.data.get(CONF_LOCAL_KEY, "")),
+                        default=local_key_default,
                     ): _secret_selector(),
                     vol.Required(
                         CONF_PROTOCOL,

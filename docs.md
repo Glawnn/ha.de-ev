@@ -448,8 +448,10 @@ area_id
 
 ### 10.6 Reauth / reconfigure / DHCP
 
-- `reauth` si la clé locale a changé ;
-- `reconfigure` pour l'IP ou les identifiants cloud ;
+- `reauth` si la clé locale a changé : récupère la clé actuelle via Tuya Cloud
+  avant de demander une saisie manuelle ;
+- `reconfigure` pour l'IP ou les identifiants cloud : préremplit la clé avec
+  celle de Tuya Cloud lorsqu'elle est disponible ;
 - `dhcp` discovery par MAC ;
 - `unique_id = device_id`.
 

@@ -49,14 +49,14 @@
       },
       "reauth_confirm": {
         "title": "Mettre à jour la clé locale",
-        "description": "La borne a refusé la clé locale enregistrée. Saisissez la nouvelle clé.",
+        "description": "La borne a refusé la clé locale enregistrée. L'intégration tente d'abord de récupérer la clé actuelle dans Tuya Cloud. Si elle n'y arrive pas, saisissez la nouvelle clé.",
         "data": {
           "local_key": "Clé locale"
         }
       },
       "reconfigure": {
         "title": "Mettre à jour la connexion",
-        "description": "Modifiez l'adresse IP, la clé locale ou la version du protocole.",
+        "description": "Modifiez l'adresse IP, la clé locale ou la version du protocole. La clé actuelle est lue dans Tuya Cloud lorsqu'elle est disponible.",
         "data": {
           "host": "Adresse IP",
           "local_key": "Clé locale",
@@ -81,6 +81,8 @@
       "cloud_error": "Erreur inattendue côté Tuya Cloud. Réessayez ; si cela persiste, consultez les logs Home Assistant.",
       "missing_config": "L'adresse IP, le Device ID et la clé locale sont obligatoires.",
       "invalid_auth": "La borne a refusé la clé locale. Récupérez la clé actuelle dans Tuya IoT Platform ou Smart Life, puis réessayez.",
+      "cloud_key_invalid": "Tuya Cloud a renvoyé une clé locale que la borne a refusée. Vérifiez que l'appareil est lié au bon compte Smart Life, ou saisissez la nouvelle clé manuellement.",
+      "cloud_key_unchanged": "Tuya Cloud a renvoyé la même clé locale que celle déjà enregistrée. Mettez à jour la clé dans Smart Life ou le projet Tuya IoT, ou saisissez la nouvelle clé manuellement.",
       "cannot_connect": "Impossible de joindre la borne sur {host}:6668. Vérifiez l'IP, que la borne est allumée et sur le même réseau que Home Assistant.",
       "port_busy": "Le port 6668 est déjà utilisé par un autre client. Fermez Smart Life ou l'application Tuya sur votre téléphone, puis réessayez.",
       "unsupported_device": "La borne répond, mais son profil Tuya n'est pas encore pris en charge. Ouvrez une issue avec le modèle et les points de données.",
