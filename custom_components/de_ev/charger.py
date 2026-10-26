@@ -82,21 +82,25 @@ class ChargerClient:
         self._device: tinytuya.Device | None = None
         self._lock = threading.RLock()
 
+    def _connect_locked(self) -> None:
+        """Create the local Tuya client. The caller must hold the lock."""
+        self._close_locked()
+        device = tinytuya.Device(
+            dev_id=self.settings.device_id,
+            address=self.settings.host,
+            local_key=self.settings.local_key,
+            version=float(self.settings.version),
+            persist=False,
+        )
+        device.set_socketTimeout(5)
+        device.set_socketRetryLimit(1)
+        device.set_socketRetryDelay(1)
+        self._device = device
+
     def connect(self) -> dict[str, Any]:
         """Open the local connection and return the first data point set."""
         with self._lock:
-            self._close_locked()
-            device = tinytuya.Device(
-                dev_id=self.settings.device_id,
-                address=self.settings.host,
-                local_key=self.settings.local_key,
-                version=float(self.settings.version),
-                persist=False,
-            )
-            device.set_socketTimeout(5)
-            device.set_socketRetryLimit(1)
-            device.set_socketRetryDelay(1)
-            self._device = device
+            self._connect_locked()
         try:
             return self.read_dps()
         except Exception:
@@ -114,15 +118,19 @@ class ChargerClient:
             with contextlib.suppress(Exception):
                 device.close()
 
-    def _require_device(self) -> tinytuya.Device:
+    def _ensure_device_locked(self) -> tinytuya.Device:
+        """Return a connected client, reconnecting after a transient failure."""
         if self._device is None:
-            raise ChargerError("Client is not connected.")
+            try:
+                self._connect_locked()
+            except Exception as err:
+                raise self._classify(err) from err
         return self._device
 
     def read_dps(self) -> dict[str, Any]:
         """Read the current data points."""
         with self._lock:
-            device = self._require_device()
+            device = self._ensure_device_locked()
             try:
                 payload = device.status()
             except Exception as err:

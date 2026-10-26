@@ -17,6 +17,7 @@ def test_manifest_matches_constants() -> None:
     assert manifest["domain"] == DOMAIN
     assert manifest["config_flow"] is True
     assert "http" in manifest["dependencies"]
+    assert "frontend" in manifest["after_dependencies"]
     assert manifest["requirements"] == ["tinytuya>=1.20.0"]
 
 

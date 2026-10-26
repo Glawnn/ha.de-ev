@@ -42,11 +42,15 @@ async def _editor_url(hass: HomeAssistant) -> str | None:
     return f"{FRONTEND_URL}/{EDITOR_FILENAME}?v={cache_buster}"
 
 
-async def async_register_frontend(hass: HomeAssistant) -> None:
-    """Register the bundled Lovelace card and its editor once."""
+async def async_register_frontend(hass: HomeAssistant) -> bool:
+    """Register the bundled Lovelace card and its editor once.
+
+    Returns True when both assets are registered. False means the frontend is
+    not ready yet and the caller should retry after Home Assistant starts.
+    """
     if hass.http is None:
         _LOGGER.debug("HTTP is not available; skipping frontend registration")
-        return
+        return False
 
     if not hass.data.get(DATA_STATIC_PATH_REGISTERED):
         await hass.http.async_register_static_paths(
@@ -55,18 +59,25 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
         hass.data[DATA_STATIC_PATH_REGISTERED] = True
 
     if hass.data.get(DATA_MODULE_REGISTERED) and hass.data.get(DATA_EDITOR_REGISTERED):
-        return
+        return True
 
     if DATA_EXTRA_MODULE_URL not in hass.data:
         _LOGGER.debug("Frontend is not loaded; card module URL not registered")
-        return
+        return False
 
+    registered = True
     card_url = await _card_url(hass)
     if card_url:
         add_extra_js_url(hass, card_url)
         hass.data[DATA_MODULE_REGISTERED] = True
+    else:
+        registered = False
 
     editor_url = await _editor_url(hass)
     if editor_url:
         add_extra_js_url(hass, editor_url)
         hass.data[DATA_EDITOR_REGISTERED] = True
+    else:
+        registered = False
+
+    return registered
