@@ -578,13 +578,48 @@ class DeEvChargerCard extends HTMLElement {
   }
 
   static getStubConfig(hass, entities) {
+    const chargers = this._chargerDevices(hass);
+    if (chargers.length === 1) {
+      return {
+        device_id: chargers[0].device_id,
+        device_identifier: chargers[0].device_identifier,
+      };
+    }
+    if (chargers.length > 1) {
+      return {};
+    }
     const candidates = entities || [];
     const entity =
       candidates.find(
         (candidate) =>
           candidate.startsWith("sensor.") && candidate.endsWith("_status"),
-      ) || candidates.find((candidate) => candidate.startsWith("sensor."));
+      ) ||
+      candidates.find(
+        (candidate) =>
+          candidate.startsWith("sensor.") && candidate.endsWith("_etat"),
+      ) ||
+      candidates.find((candidate) => candidate.startsWith("sensor."));
     return entity ? { entity } : {};
+  }
+
+  static _chargerDevices(hass) {
+    const devices = new Map();
+    for (const entry of Object.values(hass?.entities || {})) {
+      if (entry.platform !== "de_ev" || !entry.device_id) {
+        continue;
+      }
+      const device = devices.get(entry.device_id) || {
+        device_id: entry.device_id,
+        device_identifier: null,
+      };
+      const registryDevice = hass?.devices?.[entry.device_id];
+      device.device_identifier =
+        (registryDevice?.identifiers || []).find(
+          ([domain]) => domain === "de_ev",
+        )?.[1] || device.device_identifier;
+      devices.set(entry.device_id, device);
+    }
+    return [...devices.values()];
   }
 
   static getConfigElement() {
@@ -594,9 +629,6 @@ class DeEvChargerCard extends HTMLElement {
   setConfig(config) {
     if (!config || typeof config !== "object") {
       throw new Error("Invalid configuration");
-    }
-    if (!config.device_id && !config.entity && !config.entities) {
-      throw new Error("Define device_id, entity, or entities for the charger");
     }
     if (
       config.entities !== undefined &&
@@ -617,6 +649,7 @@ class DeEvChargerCard extends HTMLElement {
     this._closePopup();
     this._config = {
       device_id: config.device_id,
+      device_identifier: config.device_identifier,
       entity: config.entity,
       title: config.title,
       entities: config.entities || {},
@@ -670,12 +703,30 @@ class DeEvChargerCard extends HTMLElement {
   }
 
   _resolveEntities() {
-    const resolved = { ...(this._config?.entities || {}) };
+    const resolved = {};
+    for (const [key, entityId] of Object.entries(this._config?.entities || {})) {
+      if (!entityId) {
+        continue;
+      }
+      if (
+        this._hass &&
+        !this._hass.states?.[entityId] &&
+        !this._hass.entities?.[entityId]
+      ) {
+        continue;
+      }
+      resolved[key] = entityId;
+    }
     if (!this._hass || !this._config) {
       return resolved;
     }
     if (this._config.entity && !resolved.status) {
-      resolved.status = this._config.entity;
+      const entry = this._hass.entities?.[this._config.entity];
+      const key =
+        entry?.translation_key || this._keyFromUniqueId(entry?.unique_id);
+      if (!entry || entry.platform !== "de_ev" || key === "status") {
+        resolved.status = this._config.entity;
+      }
     }
     const registry = this._hass.entities;
     if (!registry) {
@@ -699,23 +750,51 @@ class DeEvChargerCard extends HTMLElement {
   }
 
   _resolveDeviceId() {
-    if (this._config.device_id && this._hass.devices?.[this._config.device_id]) {
+    const chargers = DeEvChargerCard._chargerDevices(this._hass);
+    const byId = new Map(chargers.map((charger) => [charger.device_id, charger]));
+    if (this._config.device_identifier) {
+      const match = chargers.find(
+        (charger) =>
+          charger.device_identifier === this._config.device_identifier,
+      );
+      if (match) {
+        return match.device_id;
+      }
+    }
+    if (this._config.device_id && byId.has(this._config.device_id)) {
       return this._config.device_id;
     }
+    for (const entityId of Object.values(this._config.entities || {})) {
+      const entry = this._hass?.entities?.[entityId];
+      if (entry?.platform === "de_ev" && byId.has(entry.device_id)) {
+        return entry.device_id;
+      }
+    }
     if (this._config.entity) {
-      const entry = this._hass.entities?.[this._config.entity];
-      if (entry?.device_id) {
+      const entry = this._hass?.entities?.[this._config.entity];
+      if (entry?.platform === "de_ev" && byId.has(entry.device_id)) {
         return entry.device_id;
       }
     }
     if (this._config.device_id) {
-      const device = Object.values(this._hass.devices || {}).find((candidate) =>
+      const device = Object.values(this._hass?.devices || {}).find((candidate) =>
         (candidate.identifiers || []).some(
           ([domain, identifier]) =>
             domain === "de_ev" && identifier === this._config.device_id,
         ),
       );
-      return device?.id || this._config.device_id;
+      if (device) {
+        return device.id;
+      }
+    }
+    if (this._config.entity) {
+      const entry = this._hass?.entities?.[this._config.entity];
+      if (entry?.device_id) {
+        return entry.device_id;
+      }
+    }
+    if (chargers.length === 1) {
+      return chargers[0].device_id;
     }
     return null;
   }

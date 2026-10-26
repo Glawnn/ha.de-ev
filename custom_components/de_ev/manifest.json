@@ -1,6 +1,9 @@
 {
   "domain": "de_ev",
   "name": "Dé EV Charger",
+  "after_dependencies": [
+    "frontend"
+  ],
   "codeowners": [
     "@Glawnn"
   ],

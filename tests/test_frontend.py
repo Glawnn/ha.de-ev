@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
 from homeassistant.core import HomeAssistant
@@ -24,7 +24,7 @@ async def test_registration_is_skipped_without_http(hass: HomeAssistant) -> None
     """Frontend registration does nothing when the HTTP stack is unavailable."""
     hass.data[DATA_EXTRA_MODULE_URL] = object()
 
-    await async_register_frontend(hass)
+    assert await async_register_frontend(hass) is False
 
     assert DATA_STATIC_PATH_REGISTERED not in hass.data
     assert DATA_MODULE_REGISTERED not in hass.data
@@ -36,8 +36,8 @@ async def test_static_path_is_registered_once(hass: HomeAssistant) -> None:
     assert await async_setup_component(hass, "http", {})
     assert (FRONTEND_DIR / CARD_FILENAME).is_file()
 
-    await async_register_frontend(hass)
-    await async_register_frontend(hass)
+    assert await async_register_frontend(hass) is False
+    assert await async_register_frontend(hass) is False
 
     assert hass.data[DATA_STATIC_PATH_REGISTERED] is True
     assert DATA_MODULE_REGISTERED not in hass.data
@@ -51,8 +51,8 @@ async def test_module_and_editor_are_registered_once(hass: HomeAssistant) -> Non
     with patch(
         "custom_components.de_ev.frontend_resources.add_extra_js_url"
     ) as add_extra_js_url:
-        await async_register_frontend(hass)
-        await async_register_frontend(hass)
+        assert await async_register_frontend(hass) is True
+        assert await async_register_frontend(hass) is True
 
     assert add_extra_js_url.call_count == 2
     card_url = add_extra_js_url.call_args_list[0].args[1]
@@ -74,7 +74,7 @@ async def test_missing_card_file_is_skipped(hass: HomeAssistant, tmp_path) -> No
             "custom_components.de_ev.frontend_resources.add_extra_js_url"
         ) as add_extra_js_url,
     ):
-        await async_register_frontend(hass)
+        assert await async_register_frontend(hass) is False
 
     add_extra_js_url.assert_not_called()
     assert DATA_MODULE_REGISTERED not in hass.data
@@ -87,3 +87,16 @@ async def test_setup_registers_frontend(hass: HomeAssistant) -> None:
         assert await async_setup_component(hass, DOMAIN, {})
 
     register.assert_awaited_once()
+
+
+async def test_setup_defers_frontend_until_started(hass: HomeAssistant) -> None:
+    """Frontend registration is retried once Home Assistant has started."""
+    register = AsyncMock(return_value=False)
+    with (
+        patch("custom_components.de_ev.async_register_frontend", register),
+        patch("custom_components.de_ev.async_at_started") as at_started,
+    ):
+        assert await async_setup_component(hass, DOMAIN, {})
+
+    register.assert_awaited_once()
+    at_started.assert_called_once_with(hass, register)

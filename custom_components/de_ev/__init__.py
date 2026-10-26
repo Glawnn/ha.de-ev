@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import homeassistant.helpers.config_validation as cv
 from homeassistant.config_entries import ConfigEntry, ConfigEntryError
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 
 from .charger import (
@@ -27,6 +29,7 @@ from .const import (
     DEFAULT_MAX_CURRENT,
     DEFAULT_MIN_CURRENT,
     DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
 )
 from .coordinator import DeEvCoordinator
 from .frontend_resources import async_register_frontend
@@ -49,6 +52,8 @@ class DeEvRuntimeData:
 
 type DeEvConfigEntry = ConfigEntry[DeEvRuntimeData]
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 
 def _settings_from_entry(entry: DeEvConfigEntry) -> ChargerSettings:
     return ChargerSettings(
@@ -63,12 +68,15 @@ def _settings_from_entry(entry: DeEvConfigEntry) -> ChargerSettings:
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Dé EV Charger integration."""
-    await async_register_frontend(hass)
+    if not await async_register_frontend(hass):
+        async_at_started(hass, async_register_frontend)
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: DeEvConfigEntry) -> bool:
     """Set up Dé EV Charger from a config entry."""
+    if not await async_register_frontend(hass):
+        async_at_started(hass, async_register_frontend)
     settings = _settings_from_entry(entry)
     if not settings.host or not settings.device_id or not settings.local_key:
         raise ConfigEntryError(
