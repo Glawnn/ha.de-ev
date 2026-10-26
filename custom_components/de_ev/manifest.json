@@ -1,15 +1,15 @@
 {
   "domain": "de_ev",
   "name": "Dé EV Charger",
+  "after_dependencies": [
+    "frontend"
+  ],
   "codeowners": [
     "@Glawnn"
   ],
   "config_flow": true,
   "dependencies": [
     "http"
-  ],
-  "after_dependencies": [
-    "frontend"
   ],
   "documentation": "https://github.com/Glawnn/ha.de-ev",
   "integration_type": "device",
