@@ -43,6 +43,16 @@ class ChargerSettings:
     max_current: int = DEFAULT_MAX_CURRENT
 
 
+AUTH_ERROR_CODES = frozenset({904, 914})
+
+
+def _error_code(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _probe(host: str, port: int = 6668, timeout: float = 3.0) -> str:
     if not host:
         return "unreachable"
@@ -141,7 +151,7 @@ class ChargerClient:
                 raise ChargerError(f"Unexpected Tuya response: {payload!r}")
             if "Error" in payload:
                 self._close_locked()
-                raise self._classify(payload["Error"])
+                raise self._classify(payload["Error"], payload.get("Err"))
 
             dps = payload.get("dps")
             if not isinstance(dps, dict) or not dps:
@@ -231,9 +241,15 @@ class ChargerClient:
                 raise self._classify(err) from err
             if isinstance(response, dict) and "Error" in response:
                 self._close_locked()
-                raise self._classify(response["Error"])
+                raise self._classify(response["Error"], response.get("Err"))
 
-    def _classify(self, err: Any) -> ChargerError:
+    def _classify(self, err: Any, code: Any = None) -> ChargerError:
+        """Map a tinytuya failure to a charger error.
+
+        Only the "key or version" and "unreadable payload" codes point at the
+        local key or the protocol. Timeouts and anything unknown are treated as
+        transient, so a busy charger does not look like a rejected key.
+        """
         text = str(err)
         probe = _probe(self.settings.host)
         if probe == "refused":
@@ -246,7 +262,12 @@ class ChargerClient:
                 f"Charger unreachable on {self.settings.host}:6668 ({text}). "
                 "Check the IP and that the charger is on the same network."
             )
-        return ChargerAuthError(
-            f"TCP connection accepted but the exchange failed ({text}): invalid "
-            f"local key or protocol {self.settings.version}?"
+        if _error_code(code) in AUTH_ERROR_CODES:
+            return ChargerAuthError(
+                f"TCP connection accepted but the exchange failed ({text}): "
+                f"invalid local key or protocol {self.settings.version}?"
+            )
+        return ChargerError(
+            f"The charger did not answer correctly ({text}). It may be busy; "
+            "this is retried automatically."
         )

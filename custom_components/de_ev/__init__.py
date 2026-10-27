@@ -91,11 +91,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: DeEvConfigEntry) -> bool
     try:
         await hass.async_add_executor_job(client.connect)
     except ChargerAuthError as err:
-        raise ConfigEntryAuthFailed(str(err)) from err
+        if recovery.record_auth_failure():
+            raise ConfigEntryAuthFailed(str(err)) from err
+        raise ConfigEntryNotReady(str(err)) from err
     except (ChargerUnreachable, ChargerBusy) as err:
         recovery.record_failure()
         raise ConfigEntryNotReady(str(err)) from err
     except ChargerError as err:
+        recovery.record_other_failure()
         raise ConfigEntryNotReady(str(err)) from err
     recovery.record_success()
 

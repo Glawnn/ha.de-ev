@@ -258,7 +258,7 @@ the drop as a new metering cycle and keeps long-term statistics.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `Port 6668 is already used` | Smart Life or Tuya app is connected | Close the mobile app, then retry |
-| `The charger rejected the local key` | Charger was re-paired or key is wrong | Re-run the integration, or enter the current key |
+| `The charger rejected the local key` | Charger was re-paired or key is wrong | Re-run the integration, or enter the current key. The request only appears after three failed attempts in a row, so a busy charger does not trigger it |
 | `Cannot reach the charger` | Wrong IP, charger offline, or different network | Check that the charger is powered. If its IP changed, the integration finds it again on its own (at most every 10 minutes); otherwise use **Reconfigure** |
 | Setup times out | Protocol mismatch or blocked port | Try protocol `3.4` or `3.3`; check your firewall |
 | Charger not found in cloud | Smart Life account not linked to the Tuya project | Link the account in the Tuya IoT Platform |

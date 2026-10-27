@@ -1,4 +1,4 @@
-"""Find the charger again after its IP address changed."""
+"""Recovery from connection problems: a moved charger, a flaky key check."""
 
 from __future__ import annotations
 
@@ -14,12 +14,18 @@ from .discovery import async_find_charger
 LOGGER = logging.getLogger(__name__)
 
 FAILURES_BEFORE_DISCOVERY = 3
+AUTH_FAILURES_BEFORE_REAUTH = 3
 DISCOVERY_COOLDOWN = 600.0
 DATA_RECOVERY = f"{DOMAIN}_recovery"
 
 
 class HostRecovery:
-    """Look for the charger on the network after repeated connection failures.
+    """Track connection failures of one charger and react to repeated ones.
+
+    After repeated network failures it looks for the charger on the network.
+    It also decides when a run of key/protocol errors is long enough to ask the
+    user to reauthenticate: on protocol 3.5 a busy charger answers like a
+    rejected key, so a single such error proves nothing.
 
     One instance lives per config entry in ``hass.data``, so the failure count
     and the cooldown survive setup retries, when no coordinator exists yet. The
@@ -31,15 +37,28 @@ class HostRecovery:
         self._hass = hass
         self._entry_id = entry_id
         self._failures = 0
+        self._auth_failures = 0
         self._last_search = -DISCOVERY_COOLDOWN
         self._task: asyncio.Task[None] | None = None
 
     def record_success(self) -> None:
-        """Reset the failure count after the charger answered."""
+        """Reset the failure counts after the charger answered."""
         self._failures = 0
+        self._auth_failures = 0
+
+    def record_other_failure(self) -> None:
+        """Note a failure that is neither a network nor a key problem."""
+        self._auth_failures = 0
+
+    def record_auth_failure(self) -> bool:
+        """Count a key/protocol error; return True once reauth is justified."""
+        self._failures = 0
+        self._auth_failures += 1
+        return self._auth_failures >= AUTH_FAILURES_BEFORE_REAUTH
 
     def record_failure(self) -> None:
         """Count a failed connection and start a search when it is time."""
+        self._auth_failures = 0
         self._failures += 1
         if self._failures < FAILURES_BEFORE_DISCOVERY:
             return

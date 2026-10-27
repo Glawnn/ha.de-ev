@@ -48,11 +48,14 @@ class DeEvCoordinator(DataUpdateCoordinator[Snapshot]):
         try:
             snapshot = await self.hass.async_add_executor_job(self.client.status)
         except ChargerAuthError as err:
-            raise ConfigEntryAuthFailed(str(err)) from err
+            if self._recovery.record_auth_failure():
+                raise ConfigEntryAuthFailed(str(err)) from err
+            raise UpdateFailed(str(err)) from err
         except (ChargerUnreachable, ChargerBusy) as err:
             self._recovery.record_failure()
             raise UpdateFailed(str(err)) from err
         except ChargerError as err:
+            self._recovery.record_other_failure()
             raise UpdateFailed(str(err)) from err
         self._recovery.record_success()
         return snapshot

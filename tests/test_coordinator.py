@@ -11,8 +11,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.de_ev import recovery
 from custom_components.de_ev.charger import (
+    ChargerAuthError,
     ChargerBusy,
     ChargerClient,
+    ChargerError,
     ChargerUnreachable,
 )
 from custom_components.de_ev.const import (
@@ -25,6 +27,7 @@ from custom_components.de_ev.const import (
 from custom_components.de_ev.coordinator import DeEvCoordinator
 from custom_components.de_ev.profiles import decode
 from custom_components.de_ev.recovery import (
+    AUTH_FAILURES_BEFORE_REAUTH,
     DISCOVERY_COOLDOWN,
 )
 from custom_components.de_ev.recovery import (
@@ -194,3 +197,62 @@ async def test_searches_are_rate_limited(
     clock[0] += DISCOVERY_COOLDOWN + 1
     await _refresh(hass, entry, 1)
     assert charger.searches == 2
+
+
+def _reauth_flows(hass: HomeAssistant) -> list[Any]:
+    return [
+        flow
+        for flow in hass.config_entries.flow.async_progress()
+        if flow["context"]["source"] == "reauth"
+    ]
+
+
+async def test_reauth_starts_after_repeated_auth_errors(
+    hass: HomeAssistant, entry: MockConfigEntry, charger: Charger
+) -> None:
+    """A rejected key keeps failing, so the user is asked for a new one."""
+    charger.error = ChargerAuthError("bad key")
+
+    await _refresh(hass, entry, AUTH_FAILURES_BEFORE_REAUTH - 1)
+    assert _reauth_flows(hass) == []
+
+    await _refresh(hass, entry, 1)
+    assert len(_reauth_flows(hass)) == 1
+
+
+async def test_a_single_auth_error_does_not_start_reauth(
+    hass: HomeAssistant, entry: MockConfigEntry, charger: Charger
+) -> None:
+    """One odd answer is retried, and polling goes on afterwards."""
+    charger.error = ChargerAuthError("busy charger")
+    await _refresh(hass, entry, 1)
+    charger.error = None
+    await _refresh(hass, entry, 1)
+
+    assert _reauth_flows(hass) == []
+    assert entry.runtime_data.coordinator.last_update_success is True
+
+
+async def test_auth_errors_must_be_consecutive(
+    hass: HomeAssistant, entry: MockConfigEntry, charger: Charger
+) -> None:
+    """A good poll or another kind of error resets the auth failure count."""
+    charger.error = ChargerAuthError("bad key")
+    await _refresh(hass, entry, AUTH_FAILURES_BEFORE_REAUTH - 1)
+    charger.error = ChargerError("timeout")
+    await _refresh(hass, entry, 1)
+    charger.error = ChargerAuthError("bad key")
+    await _refresh(hass, entry, AUTH_FAILURES_BEFORE_REAUTH - 1)
+
+    assert _reauth_flows(hass) == []
+
+
+async def test_polling_continues_after_an_auth_error(
+    hass: HomeAssistant, entry: MockConfigEntry, charger: Charger
+) -> None:
+    """The update is retried instead of stopping at the first auth error."""
+    charger.error = ChargerAuthError("busy charger")
+    await _refresh(hass, entry, 1)
+
+    assert entry.runtime_data.coordinator.last_update_success is False
+    assert entry.runtime_data.coordinator.update_interval is not None
