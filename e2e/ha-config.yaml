@@ -1,0 +1,17 @@
+default_config:
+
+homeassistant:
+  name: E2E
+  latitude: 48.8566
+  longitude: 2.3522
+  elevation: 35
+  unit_system: metric
+  time_zone: Europe/Paris
+  country: FR
+  language: en
+
+logger:
+  default: info
+  logs:
+    custom_components.de_ev: debug
+    tinytuya: debug

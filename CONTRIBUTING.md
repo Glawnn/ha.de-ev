@@ -76,6 +76,25 @@ make typecheck
 make test
 ```
 
+## End-to-end tests
+
+The `e2e/` directory starts the official Home Assistant image next to a fake
+Tuya charger (protocol `3.3`, state kept in memory) with Docker Compose, then
+drives the integration through the Home Assistant REST API: config flow,
+start/stop, current setpoint, reconnection after a connection loss, a rejected
+local key and the bundled Lovelace card.
+
+```bash
+make e2e
+```
+
+Docker is required. A run takes about a minute. The Docker logs are written to
+`e2e/e2e.log` (ignored by Git). `pytest -q` only runs `tests/`, so the unit tests
+stay fast. The same job runs in CI on every pull request.
+
+The fake charger does not cover the `3.5` session-key negotiation, which is
+handled by `tinytuya`.
+
 ## Project layout
 
 | Path | Purpose |
@@ -83,6 +102,7 @@ make test
 | `custom_components/de_ev/` | Integration source |
 | `custom_components/de_ev/brand/` | Brand images used by Home Assistant and the Marketplace |
 | `tests/` | Unit tests with `pytest-homeassistant-custom-component` |
+| `e2e/` | End-to-end tests: Home Assistant in Docker + fake Tuya charger |
 | `sandbox/` | Disposable Home Assistant development environment |
 | `docs.md` | Technical specification, data-point mapping and roadmap |
 | `README.md` | End-user documentation |

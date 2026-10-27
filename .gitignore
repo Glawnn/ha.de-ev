@@ -31,3 +31,6 @@ sandbox/ha-config/deps/
 sandbox/ha-config/tts/
 sandbox/ha-config/backups/
 sandbox/ha-config/.cloud/
+
+# End-to-end runtime
+e2e/e2e.log

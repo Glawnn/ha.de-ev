@@ -1,0 +1,36 @@
+name: de-ev-e2e
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.10.2
+    ports:
+      - "127.0.0.1:${E2E_HA_PORT:-18123}:8123"
+    volumes:
+      - ha-config:/config
+      - "./ha-config.yaml:/config/configuration.yaml:ro"
+      - "../custom_components/de_ev:/config/custom_components/de_ev:ro"
+    environment:
+      TZ: Europe/Paris
+      PYTHONDONTWRITEBYTECODE: "1"
+    depends_on:
+      fake-charger:
+        condition: service_healthy
+
+  fake-charger:
+    build:
+      context: .
+      dockerfile: Dockerfile.fake-charger
+    ports:
+      - "127.0.0.1:${E2E_CONTROL_PORT:-18080}:8080"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  ha-config:
