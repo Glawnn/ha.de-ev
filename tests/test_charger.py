@@ -8,6 +8,8 @@ import pytest
 
 from custom_components.de_ev import charger
 from custom_components.de_ev.charger import (
+    ChargerAuthError,
+    ChargerBusy,
     ChargerClient,
     ChargerError,
     ChargerSettings,
@@ -213,3 +215,64 @@ def test_write_failure_closes_the_device(fake_device: list[FakeDevice]) -> None:
 def test_values_match(current: Any, expected: Any, result: bool) -> None:
     """Confirmation compares values across the types Tuya may return."""
     assert _values_match(current, expected) is result
+
+
+@pytest.mark.parametrize(
+    ("probe", "code", "expected"),
+    [
+        ("refused", 902, ChargerBusy),
+        ("unreachable", 905, ChargerUnreachable),
+        ("open", 914, ChargerAuthError),
+        ("open", "914", ChargerAuthError),
+        ("open", 904, ChargerAuthError),
+        ("open", 902, ChargerError),
+        ("open", 901, ChargerError),
+        ("open", 905, ChargerError),
+        ("open", None, ChargerError),
+        ("open", "abc", ChargerError),
+    ],
+)
+def test_classify(
+    monkeypatch: pytest.MonkeyPatch,
+    probe: str,
+    code: Any,
+    expected: type[ChargerError],
+) -> None:
+    """Only key/protocol errors are auth errors; timeouts are transient."""
+    monkeypatch.setattr(charger, "_probe", lambda *args, **kwargs: probe)
+    client = ChargerClient(SETTINGS)
+
+    error = client._classify("boom", code)
+
+    assert type(error) is expected
+
+
+def test_timeout_with_an_open_port_is_not_an_auth_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A busy charger answering with a timeout must not ask for a new key."""
+    timeout = {"Error": "Timeout Waiting for Device", "Err": "902", "Payload": None}
+    responses: list[Any] = [timeout]
+    monkeypatch.setattr(charger.tinytuya, "Device", lambda **kw: FakeDevice(responses))
+    monkeypatch.setattr(charger, "_probe", lambda *args, **kwargs: "open")
+    client = ChargerClient(SETTINGS)
+
+    with pytest.raises(ChargerError) as raised:
+        client.read_dps()
+
+    assert not isinstance(raised.value, ChargerAuthError)
+    assert client._device is None
+
+
+def test_rejected_key_is_still_an_auth_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The unreadable-payload answer of a wrong key keeps asking for reauth."""
+    wrong_key = {"Error": "Unexpected Payload from Device", "Err": "904"}
+    responses: list[Any] = [wrong_key]
+    monkeypatch.setattr(charger.tinytuya, "Device", lambda **kw: FakeDevice(responses))
+    monkeypatch.setattr(charger, "_probe", lambda *args, **kwargs: "open")
+    client = ChargerClient(SETTINGS)
+
+    with pytest.raises(ChargerAuthError):
+        client.read_dps()

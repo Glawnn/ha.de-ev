@@ -29,6 +29,7 @@ from custom_components.de_ev.const import (
 )
 from custom_components.de_ev.profiles import decode
 from custom_components.de_ev.recovery import (
+    AUTH_FAILURES_BEFORE_REAUTH,
     DATA_RECOVERY,
     FAILURES_BEFORE_DISCOVERY,
     async_get_recovery,
@@ -150,10 +151,18 @@ async def test_entry_is_unchanged_when_the_charger_is_not_found(
     assert entry.state is ConfigEntryState.SETUP_RETRY
 
 
+def _reauth_flows(hass: HomeAssistant) -> list[Any]:
+    return [
+        flow
+        for flow in hass.config_entries.flow.async_progress()
+        if flow["context"]["source"] == "reauth"
+    ]
+
+
 async def test_a_wrong_key_does_not_trigger_a_search(
     hass: HomeAssistant, network: Network, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A rejected key is not an address problem and starts a reauth instead."""
+    """A rejected key is not an address problem, so no network scan runs."""
 
     def connect(self: ChargerClient) -> dict[str, Any]:
         raise ChargerAuthError("bad key")
@@ -165,6 +174,27 @@ async def test_a_wrong_key_does_not_trigger_a_search(
     await _retry(hass, entry, FAILURES_BEFORE_DISCOVERY)
 
     assert network.searches == 0
+
+
+async def test_setup_asks_for_reauth_only_after_repeated_auth_errors(
+    hass: HomeAssistant, network: Network, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first auth errors at startup are retried before bothering the user."""
+
+    def connect(self: ChargerClient) -> dict[str, Any]:
+        raise ChargerAuthError("bad key")
+
+    monkeypatch.setattr(ChargerClient, "connect", connect)
+    entry = _entry(hass)
+
+    await _setup(hass, entry)
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+    assert _reauth_flows(hass) == []
+
+    await _retry(hass, entry, AUTH_FAILURES_BEFORE_REAUTH - 1)
+
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert len(_reauth_flows(hass)) == 1
 
 
 async def test_state_is_shared_between_setup_and_polling(
