@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0](https://github.com/Glawnn/ha.de-ev/compare/v0.3.1...v0.4.0) (2026-10-27)
+
+
+### Features
+
+* find the charger again after an IP change ([2624aeb](https://github.com/Glawnn/ha.de-ev/commit/2624aeb54844f1f5ba23b87fe4526a97d5016632))
+* find the charger again after an IP change ([9f067f5](https://github.com/Glawnn/ha.de-ev/commit/9f067f577c324bdab37c1c2cadb42b5e0e0fc834))
+
+
+### Bug Fixes
+
+* also find the charger again when setup fails after an IP change ([6bef82f](https://github.com/Glawnn/ha.de-ev/commit/6bef82fc37dbf995a5aa66cba20a7423eedc06cc))
+* also find the charger again when setup fails after an IP change ([d2a9cb0](https://github.com/Glawnn/ha.de-ev/commit/d2a9cb0e4c865eb5403441469360f1a4a378b91e))
+* **charger:** use renamed _ensure_device_locked in _write ([9579f34](https://github.com/Glawnn/ha.de-ev/commit/9579f3483eacca572d222da457a2d4ce50b1867a))
+* **charger:** use renamed _ensure_device_locked in _write ([f19f580](https://github.com/Glawnn/ha.de-ev/commit/f19f580c5a35e6b6461a0dafb83bdfa254ec2ee0))
+
 ## [0.3.1](https://github.com/Glawnn/ha.de-ev/compare/v0.3.0...v0.3.1) (2026-10-26)
 
 
