@@ -11,7 +11,7 @@ from homeassistant.core import Event, HomeAssistant
 from homeassistant.data_entry_flow import EVENT_DATA_ENTRY_FLOW_PROGRESSED
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.de_ev import config_flow
+from custom_components.de_ev import config_flow, discovery
 from custom_components.de_ev.charger import ChargerAuthError, ChargerClient
 from custom_components.de_ev.cloud import CloudAuthError
 from custom_components.de_ev.const import (
@@ -57,12 +57,12 @@ def mock_validation(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(config_flow, "_validate_connection", _validate)
     monkeypatch.setattr(config_flow, "get_device", lambda *args: {})
-    monkeypatch.setattr(config_flow, "scan_udp", lambda *args, **kwargs: [])
+    monkeypatch.setattr(discovery, "scan_udp", lambda *args, **kwargs: [])
 
     async def _no_scan(*args: Any, **kwargs: Any) -> list[str]:
         return []
 
-    monkeypatch.setattr(config_flow, "scan_lan", _no_scan)
+    monkeypatch.setattr(discovery, "scan_lan", _no_scan)
     monkeypatch.setattr(ChargerClient, "connect", lambda self: DPS)
     monkeypatch.setattr(ChargerClient, "status", lambda self: decode(DPS))
     monkeypatch.setattr(ChargerClient, "close", lambda self: None)
