@@ -53,6 +53,7 @@ The tests use Home Assistant 2026.10 and require Python 3.14:
 uv venv --python 3.14
 uv pip install -e ".[dev]"
 uv run ruff check .
+uv run mypy
 uv run pytest -q
 ```
 
@@ -62,6 +63,7 @@ Without `uv`:
 python3.14 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
 .venv/bin/ruff check .
+.venv/bin/mypy
 .venv/bin/pytest -q
 ```
 
@@ -70,6 +72,7 @@ The Makefile shortcuts are:
 ```bash
 make install-dev
 make lint
+make typecheck
 make test
 ```
 
@@ -91,7 +94,7 @@ make test
   entity names.
 - Never log the Tuya Access Secret or the local key.
 - Add or update tests for behaviour changes.
-- Run `ruff check .` and `pytest -q` before opening a pull request.
+- Run `ruff check .`, `mypy` and `pytest -q` before opening a pull request.
 
 ## Commit conventions
 
