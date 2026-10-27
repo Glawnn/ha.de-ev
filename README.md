@@ -41,8 +41,9 @@ is unavailable after setup, local control keeps working.
 - Reauthentication that reads the current local key from Tuya Cloud before
   asking for it, and reconfiguration of the IP address.
 - Automatic recovery when the charger gets a new IP address (DHCP): after
-  three failed polls in a row, the integration looks for the charger on the
-  local network and updates its configuration.
+  three failed connection attempts in a row, whether while running or when
+  Home Assistant starts, the integration looks for the charger on the local
+  network and updates its configuration.
 - Diagnostics support with secrets redacted.
 
 ## Supported hardware

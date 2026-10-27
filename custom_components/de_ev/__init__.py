@@ -14,9 +14,11 @@ from homeassistant.helpers.typing import ConfigType
 
 from .charger import (
     ChargerAuthError,
+    ChargerBusy,
     ChargerClient,
     ChargerError,
     ChargerSettings,
+    ChargerUnreachable,
 )
 from .const import (
     CONF_DEVICE_ID,
@@ -33,6 +35,7 @@ from .const import (
 )
 from .coordinator import DeEvCoordinator
 from .frontend_resources import async_register_frontend
+from .recovery import async_get_recovery
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -84,12 +87,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: DeEvConfigEntry) -> bool
         )
 
     client = ChargerClient(settings)
+    recovery = async_get_recovery(hass, entry.entry_id)
     try:
         await hass.async_add_executor_job(client.connect)
     except ChargerAuthError as err:
         raise ConfigEntryAuthFailed(str(err)) from err
+    except (ChargerUnreachable, ChargerBusy) as err:
+        recovery.record_failure()
+        raise ConfigEntryNotReady(str(err)) from err
     except ChargerError as err:
         raise ConfigEntryNotReady(str(err)) from err
+    recovery.record_success()
 
     coordinator = DeEvCoordinator(
         hass,
