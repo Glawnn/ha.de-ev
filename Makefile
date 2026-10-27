@@ -37,7 +37,7 @@ export HA_CONTAINER_NAME HA_TIMEZONE HA_LANGUAGE HA_DEV_NAME HA_DEV_USER
 export HA_DEV_PASSWORD HA_LATITUDE HA_LONGITUDE HA_ELEVATION HA_COUNTRY
 export HA_CURRENCY HA_URL HA_SANDBOX_CONFIG COMPOSE_PROJECT_NAME
 
-.PHONY: help dev up down restart logs ps shell config reset clean onboard install-dev test lint compose-config check-component check-docker
+.PHONY: help dev up down restart logs ps shell config reset clean onboard install-dev test lint typecheck compose-config check-component check-docker
 
 help: ## Afficher cette aide
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<cible>\033[0m\n\nCibles:\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -107,6 +107,11 @@ lint: ## Lancer ruff
 	@if [ -x "$(VENV)/bin/ruff" ]; then "$(VENV)/bin/ruff" check .; \
 	elif command -v ruff >/dev/null 2>&1; then ruff check .; \
 	else printf "ruff n'est pas installé. Lance 'make install-dev'.\n"; exit 1; fi
+
+typecheck: ## Lancer mypy
+	@if [ -x "$(VENV)/bin/mypy" ]; then "$(VENV)/bin/mypy"; \
+	elif command -v mypy >/dev/null 2>&1; then mypy; \
+	else printf "mypy n'est pas installé. Lance 'make install-dev'.\n"; exit 1; fi
 
 compose-config: check-docker ## Valider le fichier Docker Compose
 	@$(DOCKER_COMPOSE) -f sandbox/docker-compose.yml config
