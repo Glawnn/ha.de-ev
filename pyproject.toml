@@ -47,3 +47,4 @@ disable_error_code = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-ra"
+markers = ["e2e: end-to-end test against Docker (run with make e2e)"]

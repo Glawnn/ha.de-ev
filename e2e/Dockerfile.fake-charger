@@ -1,0 +1,6 @@
+FROM ghcr.io/home-assistant/home-assistant:2026.10.2
+
+RUN pip install --no-cache-dir "tinytuya>=1.20.0"
+COPY fake_charger.py /app/fake_charger.py
+
+ENTRYPOINT ["python", "-u", "/app/fake_charger.py"]
