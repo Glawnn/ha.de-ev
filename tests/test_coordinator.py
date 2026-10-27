@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.de_ev import coordinator as coordinator_module
+from custom_components.de_ev import recovery
 from custom_components.de_ev.charger import (
     ChargerBusy,
     ChargerClient,
@@ -22,12 +22,14 @@ from custom_components.de_ev.const import (
     CONF_PROTOCOL,
     DOMAIN,
 )
-from custom_components.de_ev.coordinator import (
-    DISCOVERY_COOLDOWN,
-    UNREACHABLE_BEFORE_DISCOVERY,
-    DeEvCoordinator,
-)
+from custom_components.de_ev.coordinator import DeEvCoordinator
 from custom_components.de_ev.profiles import decode
+from custom_components.de_ev.recovery import (
+    DISCOVERY_COOLDOWN,
+)
+from custom_components.de_ev.recovery import (
+    FAILURES_BEFORE_DISCOVERY as UNREACHABLE_BEFORE_DISCOVERY,
+)
 
 DPS: dict[str, Any] = {
     "102": '{"L1": [2300, 100, 23], "t": 250, "d": 600, "e": 12}',
@@ -68,7 +70,7 @@ def charger(monkeypatch: pytest.MonkeyPatch) -> Charger:
     monkeypatch.setattr(ChargerClient, "connect", lambda self: DPS)
     monkeypatch.setattr(ChargerClient, "status", lambda client: fake.status())
     monkeypatch.setattr(ChargerClient, "close", lambda self: None)
-    monkeypatch.setattr(coordinator_module, "async_find_charger", fake.find)
+    monkeypatch.setattr(recovery, "async_find_charger", fake.find)
     return fake
 
 
@@ -184,7 +186,7 @@ async def test_searches_are_rate_limited(
     charger.error = ChargerUnreachable("no route")
     charger.found = ""
     clock = [1000.0]
-    monkeypatch.setattr(coordinator_module.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(recovery.time, "monotonic", lambda: clock[0])
 
     await _refresh(hass, entry, UNREACHABLE_BEFORE_DISCOVERY + 5)
     assert charger.searches == 1
