@@ -223,7 +223,7 @@ class ChargerClient:
 
     def _write(self, dp: str, value: Any) -> None:
         with self._lock:
-            device = self._require_device()
+            device = self._ensure_device_locked()
             try:
                 response = device.set_value(dp, value)
             except Exception as err:
