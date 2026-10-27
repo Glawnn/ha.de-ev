@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.1](https://github.com/Glawnn/ha.de-ev/compare/v0.4.0...v0.4.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* stop treating transient errors as an invalid local key ([cdb4fbf](https://github.com/Glawnn/ha.de-ev/commit/cdb4fbf9b8b09204837e1e235a6ade617dc07fb8))
+* stop treating transient errors as an invalid local key ([21f4fd4](https://github.com/Glawnn/ha.de-ev/commit/21f4fd4f8ee888ccdcb11a3e367019d69017801a)), closes [#16](https://github.com/Glawnn/ha.de-ev/issues/16)
+
 ## [0.4.0](https://github.com/Glawnn/ha.de-ev/compare/v0.3.1...v0.4.0) (2026-10-27)
 
 
