@@ -40,6 +40,9 @@ is unavailable after setup, local control keeps working.
 - Automatic Tuya protocol detection (`3.5`, then `3.4` and `3.3`).
 - Reauthentication that reads the current local key from Tuya Cloud before
   asking for it, and reconfiguration of the IP address.
+- Automatic recovery when the charger gets a new IP address (DHCP): after
+  three failed polls in a row, the integration looks for the charger on the
+  local network and updates its configuration.
 - Diagnostics support with secrets redacted.
 
 ## Supported hardware
@@ -255,7 +258,7 @@ the drop as a new metering cycle and keeps long-term statistics.
 |---|---|---|
 | `Port 6668 is already used` | Smart Life or Tuya app is connected | Close the mobile app, then retry |
 | `The charger rejected the local key` | Charger was re-paired or key is wrong | Re-run the integration, or enter the current key |
-| `Cannot reach the charger` | Wrong IP, charger offline, or different network | Check the IP and that the charger is powered |
+| `Cannot reach the charger` | Wrong IP, charger offline, or different network | Check that the charger is powered. If its IP changed, the integration finds it again on its own (at most every 10 minutes); otherwise use **Reconfigure** |
 | Setup times out | Protocol mismatch or blocked port | Try protocol `3.4` or `3.3`; check your firewall |
 | Charger not found in cloud | Smart Life account not linked to the Tuya project | Link the account in the Tuya IoT Platform |
 | Values look wrong | Unsupported model/profile | Open an issue with the model and data points |

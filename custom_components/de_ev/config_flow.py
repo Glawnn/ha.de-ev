@@ -59,7 +59,7 @@ from .const import (
     PROTOCOLS,
     REGIONS,
 )
-from .discovery import scan_lan, scan_udp
+from .discovery import async_find_charger
 from .profiles import Snapshot, decode
 
 LOGGER = logging.getLogger(__name__)
@@ -206,29 +206,6 @@ async def _validate_connection(
                 await hass.async_add_executor_job(client.close)
 
     raise last_error or ChargerError("Unable to connect to the charger.")
-
-
-def _probe_host(host: str, device_id: str, local_key: str) -> bool:
-    """Return True when the host accepts this device ID and local key."""
-    for version in PROTOCOLS:
-        client = ChargerClient(
-            ChargerSettings(
-                host=host,
-                device_id=device_id,
-                local_key=local_key,
-                version=version,
-            )
-        )
-        try:
-            client.connect()
-            return True
-        except (ChargerBusy, ChargerUnreachable):
-            return False
-        except ChargerError:
-            continue
-        finally:
-            client.close()
-    return False
 
 
 class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -482,75 +459,7 @@ class DeEvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _discover_host(self, device_id: str, local_key: str) -> str:
         """Find the LAN address of a known Tuya device."""
-        try:
-            devices = await self.hass.async_add_executor_job(scan_udp, 8)
-        except Exception:
-            LOGGER.exception("Tuya UDP discovery failed")
-            devices = []
-
-        LOGGER.debug("Tuya UDP discovery found %d device(s)", len(devices))
-        for device in devices:
-            if device.get("device_id") == device_id and device.get("ip"):
-                LOGGER.debug(
-                    "Charger %s announced itself at %s", device_id, device["ip"]
-                )
-                return str(device["ip"])
-
-        if not local_key:
-            LOGGER.debug("No local key available, skipping the LAN scan")
-            return ""
-
-        try:
-            addresses = await scan_lan(port=6668, timeout=0.5, concurrency=96)
-        except Exception:
-            LOGGER.exception("LAN scan failed")
-            return ""
-
-        LOGGER.debug(
-            "LAN scan found %d host(s) with port 6668 open", len(addresses)
-        )
-        if not addresses:
-            return ""
-
-        host = await self._probe_hosts(addresses, device_id, local_key)
-        if host:
-            LOGGER.debug("Charger %s authenticated at %s", device_id, host)
-        else:
-            LOGGER.debug(
-                "No host among %d candidate(s) accepted device %s",
-                len(addresses),
-                device_id,
-            )
-        return host
-
-    async def _probe_hosts(
-        self, addresses: list[str], device_id: str, local_key: str
-    ) -> str:
-        """Probe candidate hosts in parallel; the right one accepts the key."""
-        semaphore = asyncio.Semaphore(8)
-
-        async def probe(address: str) -> str:
-            async with semaphore:
-                try:
-                    if await self.hass.async_add_executor_job(
-                        _probe_host, address, device_id, local_key
-                    ):
-                        return address
-                except Exception:
-                    LOGGER.debug("Probe failed for %s", address, exc_info=True)
-                return ""
-
-        tasks = [
-            self.hass.async_create_task(probe(address), eager_start=False)
-            for address in addresses
-        ]
-        for finished in asyncio.as_completed(tasks):
-            address = await finished
-            if address:
-                for task in tasks:
-                    task.cancel()
-                return address
-        return ""
+        return await async_find_charger(self.hass, device_id, local_key)
 
     async def async_step_host(
         self, user_input: dict[str, Any] | None = None
